@@ -142,6 +142,16 @@
   .d-cell .vl{ font-family:'Zen Dots', sans-serif; font-size:16px; margin-top:5px; color: var(--txt); }
   .d-cell.accent .vl{ color: var(--cyan); }
 
+  .stat-grid{ display:grid; grid-template-columns: repeat(4,1fr); gap:1px; background:#2A2244; margin-bottom: 28px; }
+  .s-cell{ background: var(--panel); padding:14px; text-align:center; }
+  .s-cell .lb{ font-family:'Chakra Petch', sans-serif; font-size:9px; letter-spacing:0.1em; color: var(--muted); text-transform:uppercase; }
+  .s-cell .vl{ font-family:'Zen Dots', sans-serif; font-size:15px; margin-top:6px; color: var(--txt); }
+  .s-cell.hot .vl{ color: var(--magenta); }
+  .s-cell.good .vl{ color: var(--yellow); }
+  .s-cell .bar{ height:4px; background:#241C3C; margin-top:8px; position:relative; overflow:hidden; }
+  .s-cell .bar i{ position:absolute; inset:0 auto 0 0; background: linear-gradient(90deg, var(--violet), var(--cyan)); display:block; }
+  @media(max-width:640px){ .stat-grid{ grid-template-columns:1fr 1fr; } }
+
   .state{ background: var(--panel); border:1px dashed #2A2244; text-align:center; padding:36px 16px; color: var(--muted); margin-bottom: 20px; }
   .state b{ display:block; font-family:'Zen Dots', sans-serif; font-size:15px; color: var(--txt); margin-bottom:8px; letter-spacing:0.03em; }
   .state.err{ border-color: var(--danger); }
@@ -192,6 +202,7 @@
 <script>
 const FIRST = ["Shadow","Nova","Blaze","Vortex","Cipher","Raven","Titan","Ember","Frost","Nyx","Rogue","Phantom","Zephyr","Onyx","Kestrel","Static","Wraith","Solace","Rune","Fable","Draken","Halo","Grim","Lyric","Ashen","Vale","Quartz","Marrow","Sable","Echo","Talon","Brix","Jinx","Cove","Torque","Pyre","Glint","Marsh","Rune","Vex"];
 const SUFFIX = ["Alpha","Prime","X","Zero","One","Storm","Byte","Core","Edge","Flux","Wolf","Hawk","Ghost","King","Queen","Knight","Fox","Bolt","Star","Reaper"];
+const CLASSES = ["Recon","Assault","Support","Sniper","Tech","Ghost","Vanguard","Medic"];
 function seededRandom(seed){ let s=seed; return function(){ s=(s*9301+49297)%233280; return s/233280; }; }
 function buildPlayers(){
   const rand=seededRandom(1337); const players=[]; const used=new Set(); let top=9850;
@@ -199,7 +210,15 @@ function buildPlayers(){
     let name; do{ const f=FIRST[Math.floor(rand()*FIRST.length)]; const s=SUFFIX[Math.floor(rand()*SUFFIX.length)]; name=`${f} ${s}`; }while(used.has(name));
     used.add(name);
     const gap=40+Math.floor(rand()*90)+i*1.5; top = i===0?9850:Math.max(top-gap,120);
-    players.push({ id:`PLAYER-${1001+i}`, name, score:Math.round(top) });
+    const level = 12 + Math.floor(rand()*88);
+    const matches = 120 + Math.floor(rand()*780);
+    const winRate = Math.round((34 + rand()*44)*10)/10;
+    const kd = Math.round((0.6 + rand()*2.6)*100)/100;
+    const streak = Math.floor(rand()*15);
+    const playtimeHrs = Math.round(60 + rand()*1150);
+    const accuracy = Math.round(20 + rand()*40);
+    const mainClass = CLASSES[Math.floor(rand()*CLASSES.length)];
+    players.push({ id:`PLAYER-${1001+i}`, name, score:Math.round(top), level, matches, winRate, kd, streak, playtimeHrs, accuracy, mainClass });
   }
   return players;
 }
@@ -238,7 +257,20 @@ function renderPlayer(p){
       <div class="d-cell accent"><div class="lb">Rank</div><div class="vl">#${selected.rank}</div></div>
       <div class="d-cell accent"><div class="lb">Score</div><div class="vl">${fmt(selected.score)}</div></div>
     </div>
-    <div class="section-title"><span class="tag">03</span><h2>Adjacent Nodes</h2><span class="rule"></span></div>
+    <div class="section-title"><span class="tag">03</span><h2>Combat Stats</h2><span class="rule"></span></div>
+    <div class="stat-grid">
+      <div class="s-cell good"><div class="lb">Level</div><div class="vl">${selected.level}</div></div>
+      <div class="s-cell"><div class="lb">Class</div><div class="vl">${selected.mainClass}</div></div>
+      <div class="s-cell"><div class="lb">Matches</div><div class="vl">${fmt(selected.matches)}</div></div>
+      <div class="s-cell hot"><div class="lb">Win Streak</div><div class="vl">${selected.streak}</div></div>
+      <div class="s-cell"><div class="lb">Win Rate</div><div class="vl">${selected.winRate}%</div>
+        <div class="bar"><i style="width:${selected.winRate}%"></i></div>
+      </div>
+      <div class="s-cell"><div class="lb">K/D Ratio</div><div class="vl">${selected.kd.toFixed(2)}</div></div>
+      <div class="s-cell"><div class="lb">Accuracy</div><div class="vl">${selected.accuracy}%</div></div>
+      <div class="s-cell"><div class="lb">Playtime</div><div class="vl">${fmt(selected.playtimeHrs)}h</div></div>
+    </div>
+    <div class="section-title"><span class="tag">04</span><h2>Adjacent Nodes</h2><span class="rule"></span></div>
     <div class="ladder">${lrow(above,false)}${lrow(selected,true)}${lrow(below,false)}</div>
   `;
 }
