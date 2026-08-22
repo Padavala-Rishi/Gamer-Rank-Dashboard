@@ -3,419 +3,283 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gamer Rank Dashboard</title>
+<title>Gamer Rank Dashboard — Cyberpunk</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Dots&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg: #0B0E14;
-    --panel: #131826;
-    --panel-2: #171E30;
-    --line: #232B40;
-    --text: #E7EAF0;
-    --muted: #7A8299;
-    --violet: #7C5CFF;
-    --cyan: #2FE6D6;
-    --amber: #FFB04A;
-    --danger: #FF6B5E;
-    --radius: 14px;
+    --void:#08060F; --panel:#120E1E; --magenta:#FF2FD1; --cyan:#00F0FF; --yellow:#F6FF3C; --violet:#7A3CFF; --txt:#E8E4FF; --muted:#6E6690; --danger:#FF3860;
   }
-  *{ box-sizing: border-box; }
-  html,body{
-    margin:0; padding:0; min-height:100%;
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; min-height:100%; background: var(--void); color: var(--txt); font-family:'Chakra Petch', sans-serif; overflow-x:hidden; }
+  body{ position:relative; }
+
+  /* Layer 1: static vignette + glow wash (fixed) */
+  .bg-wash{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
     background:
-      radial-gradient(circle at 15% 0%, rgba(124,92,255,0.14), transparent 45%),
-      radial-gradient(circle at 90% 10%, rgba(47,230,214,0.10), transparent 40%),
-      var(--bg);
-    color: var(--text);
-    font-family: 'Inter', sans-serif;
+      radial-gradient(circle at 15% 0%, rgba(255,47,209,0.16), transparent 45%),
+      radial-gradient(circle at 90% 15%, rgba(0,240,255,0.14), transparent 40%),
+      radial-gradient(circle at 50% 100%, rgba(122,60,255,0.12), transparent 50%);
   }
-  .display{ font-family: 'Rajdhani', sans-serif; letter-spacing: 0.02em; }
-  .mono{ font-family: 'JetBrains Mono', monospace; }
 
-  .wrap{ max-width: 920px; margin: 0 auto; padding: 32px 20px 64px; }
+  /* Layer 2: drifting perspective grid (animated) */
+  .bg-grid{
+    position:fixed; inset:-10% -10% -30% -10%; z-index:0; pointer-events:none;
+    background-image:
+      linear-gradient(rgba(0,240,255,0.14) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,47,209,0.10) 1px, transparent 1px);
+    background-size: 42px 42px;
+    transform: perspective(600px) rotateX(58deg) scale(1.6);
+    transform-origin: center 20%;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
+    animation: gridDrift 6s linear infinite;
+  }
+  @keyframes gridDrift{ from{ background-position: 0 0, 0 0; } to{ background-position: 0 84px, 42px 0; } }
 
-  header.top{
-    display:flex; align-items:flex-end; justify-content:space-between; gap:16px;
-    margin-bottom: 28px; flex-wrap: wrap;
+  /* Layer 3: scanline sweep */
+  .bg-scanline{
+    position:fixed; left:0; right:0; height: 140px; z-index:0; pointer-events:none;
+    background: linear-gradient(to bottom, transparent, rgba(0,240,255,0.06) 45%, rgba(0,240,255,0.10) 50%, rgba(0,240,255,0.06) 55%, transparent);
+    animation: scanSweep 7s ease-in-out infinite;
   }
-  .brand-eyebrow{
-    font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:0.18em;
-    color: var(--cyan); text-transform:uppercase; margin:0 0 6px;
+  @keyframes scanSweep{
+    0%{ top: -140px; }
+    50%{ top: 100vh; }
+    100%{ top: -140px; }
   }
+
+  /* Layer 4: floating data particles */
+  .bg-particles{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+  .particle{
+    position:absolute; bottom:-10px; border-radius:50%;
+    box-shadow: 0 0 8px 1px currentColor;
+    animation-name: floatUp; animation-timing-function: linear; animation-iteration-count: infinite;
+  }
+  @keyframes floatUp{
+    0%{ transform: translateY(0) translateX(0); opacity:0; }
+    8%{ opacity:0.9; }
+    92%{ opacity:0.7; }
+    100%{ transform: translateY(-110vh) translateX(var(--drift, 20px)); opacity:0; }
+  }
+
+  .wrap{ max-width: 900px; margin:0 auto; padding: 34px 20px 60px; position:relative; z-index:1; }
+
+  /* HUD corner brackets */
+  .hud{ position:relative; border: 1px solid rgba(0,240,255,0.25); padding: 26px 24px; background: rgba(18,14,30,0.7); backdrop-filter: blur(2px); }
+  .hud::before, .hud::after{ content:""; position:absolute; width:18px; height:18px; border-color: var(--cyan); }
+  .hud::before{ top:-1px; left:-1px; border-top:2px solid var(--cyan); border-left:2px solid var(--cyan); }
+  .hud::after{ bottom:-1px; right:-1px; border-bottom:2px solid var(--magenta); border-right:2px solid var(--magenta); }
+
+  .eyebrow{ font-family:'Chakra Petch', sans-serif; font-weight:600; font-size:11px; letter-spacing:0.3em; color: var(--cyan); text-transform:uppercase; }
   h1{
-    font-family:'Rajdhani', sans-serif; font-weight:700; font-size: 34px;
-    margin:0; line-height:1.05;
+    font-family:'Zen Dots', sans-serif; font-size: 30px; margin: 10px 0 0; line-height:1.25;
+    color: var(--txt); text-shadow: 2px 0 var(--magenta), -2px 0 var(--cyan);
+    position:relative;
   }
-  h1 span{ color: var(--violet); }
-  .subtitle{ color: var(--muted); font-size: 14px; margin-top:6px; max-width: 480px; }
+  .sub{ color: var(--muted); font-size:13px; margin-top:10px; max-width:480px; }
 
-  /* Search */
-  .search-panel{
-    background: linear-gradient(180deg, var(--panel-2), var(--panel));
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 18px;
-    display:flex; gap:10px; align-items:center;
-    margin-bottom: 28px;
-  }
+  .search-panel{ display:flex; gap:10px; margin: 24px 0 10px; }
   .search-panel input{
-    flex:1; background: #0D1220; border: 1px solid var(--line); color: var(--text);
-    padding: 13px 14px; border-radius: 10px; font-family:'JetBrains Mono', monospace;
-    font-size: 14px; letter-spacing: 0.03em; outline:none; transition: border-color .15s;
+    flex:1; background:#0A0714; border:1px solid var(--violet); color: var(--txt);
+    padding:13px 16px; font-family:'Chakra Petch', sans-serif; font-size:14px; letter-spacing:0.02em; outline:none;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 10px 100%, 0 calc(100% - 10px));
   }
-  .search-panel input::placeholder{ color:#4B5368; }
-  .search-panel input:focus{ border-color: var(--violet); }
+  .search-panel input:focus{ border-color: var(--cyan); box-shadow: 0 0 12px rgba(0,240,255,0.25); }
+  .search-panel input::placeholder{ color:#4A4268; }
   .search-panel button{
-    background: linear-gradient(135deg, var(--violet), #5A3FE0);
-    color: white; border:none; padding: 13px 22px; border-radius: 10px;
-    font-family:'Rajdhani', sans-serif; font-weight:700; font-size:15px; letter-spacing: 0.03em;
-    cursor:pointer; transition: transform .1s ease, box-shadow .15s ease; white-space:nowrap;
+    background: linear-gradient(135deg, var(--magenta), var(--violet)); border:none; color:#fff;
+    font-family:'Chakra Petch', sans-serif; font-weight:700; font-size:14px; letter-spacing:0.05em; padding: 0 24px;
+    cursor:pointer; text-transform:uppercase; clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
   }
-  .search-panel button:hover{ box-shadow: 0 6px 18px rgba(124,92,255,0.35); transform: translateY(-1px); }
-  .search-panel button:active{ transform: translateY(0); }
+  .search-panel button:hover{ filter: brightness(1.2); box-shadow: 0 0 18px rgba(255,47,209,0.4); }
 
-  .hint-row{ display:flex; gap:8px; flex-wrap:wrap; margin: -18px 0 26px; }
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 30px; }
   .chip{
-    font-family:'JetBrains Mono', monospace; font-size:11.5px; color: var(--muted);
-    background: var(--panel); border:1px solid var(--line); padding:5px 10px; border-radius: 20px;
-    cursor:pointer; transition: border-color .15s, color .15s;
+    font-family:'Chakra Petch', sans-serif; font-size:11.5px; color: var(--muted); border:1px solid #2A2244;
+    padding:5px 12px; cursor:pointer; letter-spacing:0.03em; text-transform:uppercase;
   }
-  .chip:hover{ border-color: var(--cyan); color: var(--cyan); }
+  .chip:hover{ border-color: var(--yellow); color: var(--yellow); }
 
-  /* Section titles */
-  .section-title{
-    display:flex; align-items:center; gap:10px; margin: 8px 0 14px;
-  }
-  .section-title .num{
-    font-family:'JetBrains Mono', monospace; font-size:11px; color: var(--bg);
-    background: var(--cyan); width:20px; height:20px; border-radius:5px;
-    display:flex; align-items:center; justify-content:center; font-weight:700;
-  }
-  .section-title h2{
-    font-family:'Rajdhani', sans-serif; font-size: 17px; text-transform:uppercase;
-    letter-spacing: 0.1em; margin:0; color: var(--muted); font-weight:600;
-  }
+  .section-title{ display:flex; align-items:center; gap:10px; margin: 22px 0 16px; }
+  .section-title .tag{ font-family:'Chakra Petch', sans-serif; font-weight:700; font-size:10px; color: var(--void); background: var(--cyan); padding:3px 8px; letter-spacing:0.08em; }
+  .section-title h2{ font-family:'Zen Dots', sans-serif; font-size:14px; letter-spacing:0.05em; margin:0; color: var(--txt); text-transform:uppercase; }
+  .section-title .rule{ flex:1; height:1px; background: linear-gradient(90deg, rgba(0,240,255,0.4), transparent); }
 
-  /* Podium (Top 3) */
-  .podium{
-    display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 32px;
+  .podium{ display:grid; grid-template-columns: repeat(3,1fr); gap:12px; margin-bottom: 8px; }
+  .p-card{
+    position:relative; background: var(--panel); border:1px solid #2A2244; padding: 18px 14px; text-align:center;
+    clip-path: polygon(0 0, 100% 0, 100% 90%, 90% 100%, 0 100%);
   }
-  .podium-card{
-    background: var(--panel); border:1px solid var(--line); border-radius: var(--radius);
-    padding: 18px 14px; text-align:center; position:relative; overflow:hidden;
-  }
-  .podium-card.gold{ order:2; border-color: rgba(255,176,74,0.5); background: linear-gradient(180deg, rgba(255,176,74,0.10), var(--panel)); transform: translateY(-10px); }
-  .podium-card.silver{ order:1; border-color: rgba(200,210,230,0.35); }
-  .podium-card.bronze{ order:3; border-color: rgba(255,138,90,0.35); }
-  .podium-rank{
-    font-family:'Rajdhani', sans-serif; font-weight:700; font-size: 13px;
-    letter-spacing: 0.15em; text-transform:uppercase; color: var(--muted); margin-bottom:6px;
-  }
-  .podium-card.gold .podium-rank{ color: var(--amber); }
-  .podium-name{ font-family:'Rajdhani', sans-serif; font-weight:700; font-size: 19px; margin: 4px 0 2px; word-break:break-word; }
-  .podium-id{ font-family:'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
-  .podium-score{ font-family:'JetBrains Mono', monospace; font-size: 22px; font-weight:700; margin-top: 10px; color: var(--cyan); }
-  .podium-card.gold .podium-score{ color: var(--amber); }
+  .p-card.gold{ border-color: var(--yellow); box-shadow: 0 0 16px rgba(246,255,60,0.18) inset; }
+  .p-card.silver{ border-color: var(--cyan); }
+  .p-card.bronze{ border-color: var(--magenta); }
+  .p-card .rk{ font-family:'Zen Dots', sans-serif; font-size:11px; color: var(--muted); }
+  .p-card.gold .rk{ color: var(--yellow); }
+  .p-card .nm{ font-family:'Chakra Petch', sans-serif; font-weight:700; font-size:18px; margin:8px 0 2px; }
+  .p-card .id{ font-size:10.5px; color: var(--muted); letter-spacing:0.03em; }
+  .p-card .sc{ font-family:'Zen Dots', sans-serif; font-size:19px; margin-top:12px; color: var(--cyan); }
+  .p-card.gold .sc{ color: var(--yellow); }
+  .p-card.bronze .sc{ color: var(--magenta); }
 
-  /* Ladder (surrounding players) */
-  .ladder{
-    background: var(--panel); border:1px solid var(--line); border-radius: var(--radius);
-    padding: 6px; margin-bottom: 20px;
-  }
-  .ladder-row{
-    display:flex; align-items:center; gap:14px; padding: 16px 18px;
-    border-radius: 10px; position:relative;
-  }
-  .ladder-row + .ladder-row{ border-top: 1px solid var(--line); }
-  .ladder-row .rank-badge{
-    font-family:'JetBrains Mono', monospace; font-size: 14px; font-weight:700;
-    color: var(--muted); width: 46px; text-align:center;
-  }
-  .ladder-row .name{ flex:1; font-family:'Rajdhani', sans-serif; font-weight:600; font-size:17px; }
-  .ladder-row .pid{ font-family:'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); margin-left:8px; }
-  .ladder-row .score{ font-family:'JetBrains Mono', monospace; font-size: 16px; font-weight:700; color: var(--muted); }
+  .ladder{ background: var(--panel); border:1px solid #2A2244; margin-bottom: 28px; }
+  .lrow{ display:flex; align-items:center; gap:16px; padding: 15px 18px; border-bottom:1px solid #201A38; }
+  .lrow:last-child{ border-bottom:none; }
+  .lrow .rk{ font-family:'Zen Dots', sans-serif; font-size:13px; color: var(--muted); width:50px; }
+  .lrow .nm{ flex:1; font-family:'Chakra Petch', sans-serif; font-weight:600; font-size:16px; }
+  .lrow .id{ font-size:10.5px; color: var(--muted); margin-left:8px; }
+  .lrow .sc{ font-family:'Zen Dots', sans-serif; font-size:14px; color: var(--muted); }
+  .lrow.sel{ background: linear-gradient(90deg, rgba(255,47,209,0.14), transparent); border-left: 3px solid var(--magenta); }
+  .lrow.sel .rk{ color: var(--magenta); }
+  .lrow.sel .sc{ color: var(--cyan); }
+  .lrow.sel .nm::after{ content:"[ ACTIVE ]"; font-family:'Chakra Petch', sans-serif; font-size:10px; font-weight:700; color: var(--yellow); margin-left:10px; letter-spacing:0.06em; }
+  .empty-note{ text-align:center; padding:16px; color: var(--muted); font-size:11.5px; text-transform:uppercase; letter-spacing:0.08em; }
 
-  .ladder-row.selected{
-    background: linear-gradient(90deg, rgba(124,92,255,0.16), rgba(124,92,255,0.02));
-    border: 1px solid var(--violet); margin: 2px 0;
-  }
-  .ladder-row.selected .rank-badge{ color: var(--violet); }
-  .ladder-row.selected .score{ color: var(--cyan); }
-  .ladder-row.selected .name::after{
-    content: "YOU"; font-family:'JetBrains Mono', monospace; font-size: 10px;
-    color: var(--bg); background: var(--violet); padding: 2px 7px; border-radius: 20px;
-    margin-left: 10px; letter-spacing: 0.05em; vertical-align: middle;
-  }
-  .ladder-empty-note{
-    text-align:center; color: var(--muted); font-family:'JetBrains Mono', monospace;
-    font-size: 12px; padding: 14px; letter-spacing: 0.03em;
-  }
+  .detail-strip{ display:grid; grid-template-columns: repeat(4,1fr); gap:1px; background:#2A2244; margin-bottom: 28px; }
+  .d-cell{ background: var(--panel); padding:13px 14px; }
+  .d-cell .lb{ font-family:'Chakra Petch', sans-serif; font-size:9.5px; letter-spacing:0.12em; color: var(--muted); text-transform:uppercase; }
+  .d-cell .vl{ font-family:'Zen Dots', sans-serif; font-size:16px; margin-top:5px; color: var(--txt); }
+  .d-cell.accent .vl{ color: var(--cyan); }
 
-  /* Player detail strip */
-  .detail-strip{
-    display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 28px;
-  }
-  .detail-cell{
-    background: var(--panel); border:1px solid var(--line); border-radius: 10px;
-    padding: 12px 14px;
-  }
-  .detail-cell .label{ font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; }
-  .detail-cell .value{ font-family:'Rajdhani', sans-serif; font-weight:700; font-size: 19px; margin-top:4px; }
-  .detail-cell.accent .value{ color: var(--cyan); }
+  .state{ background: var(--panel); border:1px dashed #2A2244; text-align:center; padding:36px 16px; color: var(--muted); margin-bottom: 20px; }
+  .state b{ display:block; font-family:'Zen Dots', sans-serif; font-size:15px; color: var(--txt); margin-bottom:8px; letter-spacing:0.03em; }
+  .state.err{ border-color: var(--danger); }
+  .state.err b{ color: var(--danger); }
 
-  /* States */
-  .state-box{
-    background: var(--panel); border: 1px dashed var(--line); border-radius: var(--radius);
-    padding: 30px 20px; text-align:center; color: var(--muted); margin-bottom: 24px;
-  }
-  .state-box.error{ border-color: rgba(255,107,94,0.5); background: rgba(255,107,94,0.06); color: var(--danger); }
-  .state-box .big{ font-family:'Rajdhani', sans-serif; font-weight:700; font-size:18px; color: var(--text); margin-bottom: 4px; }
-  .state-box.error .big{ color: var(--danger); }
+  footer{ text-align:center; font-size:10.5px; color: var(--muted); margin-top: 22px; letter-spacing:0.05em; text-transform:uppercase; }
 
-  footer{ text-align:center; color:var(--muted); font-size:12px; margin-top: 30px; font-family:'JetBrains Mono', monospace; }
-
-  @media (max-width: 640px){
-    .podium{ grid-template-columns: 1fr; }
-    .podium-card.gold, .podium-card.silver, .podium-card.bronze{ order:0; transform:none; }
-    .detail-strip{ grid-template-columns: 1fr 1fr; }
-    .search-panel{ flex-wrap:wrap; }
-    .search-panel button{ width:100%; }
-  }
-
+  @media(max-width:640px){ .podium{ grid-template-columns:1fr; } .detail-strip{ grid-template-columns:1fr 1fr; } h1{ font-size:22px; } }
   @media (prefers-reduced-motion: reduce){
-    *{ transition: none !important; }
+    * { animation:none !important; }
+    .bg-grid, .bg-scanline, .bg-particles{ display:none; }
   }
 </style>
 </head>
 <body>
+<div class="bg-wash"></div>
+<div class="bg-grid"></div>
+<div class="bg-scanline"></div>
+<div class="bg-particles" id="bgParticles"></div>
 <div class="wrap">
+  <div class="hud">
+    <div class="eyebrow">// NET-RUN.LEADERBOARD // SECTOR 7</div>
+    <h1>GAMER RANK DASHBOARD</h1>
+    <p class="sub">Jack into the standings. Pull any Player ID and see exactly where they sit against the top of the grid.</p>
 
-  <header class="top">
-    <div>
-      <p class="brand-eyebrow">// live standings</p>
-      <h1>Gamer Rank <span>Dashboard</span></h1>
-      <p class="subtitle">Look up any player and instantly see where they sit against the top of the leaderboard.</p>
+    <div class="search-panel">
+      <input id="playerInput" placeholder="PLAYER-1024" autocomplete="off">
+      <button id="searchBtn">ACCESS</button>
     </div>
-  </header>
-
-  <div class="search-panel">
-    <input type="text" id="playerInput" class="mono" placeholder="Enter Player ID, e.g. PLAYER-1024" autocomplete="off">
-    <button id="searchBtn">View Player</button>
-  </div>
-  <div class="hint-row">
-    <span style="color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:11.5px;">Try:</span>
-    <span class="chip" data-id="PLAYER-1001">PLAYER-1001 (rank 1)</span>
-    <span class="chip" data-id="PLAYER-1025">PLAYER-1025 (mid-pack)</span>
-    <span class="chip" data-id="PLAYER-1045">PLAYER-1045 (last)</span>
-    <span class="chip" data-id="PLAYER-9999">PLAYER-9999 (invalid)</span>
-  </div>
-
-  <div class="section-title"><span class="num">1</span><h2>Top 3 Overall</h2></div>
-  <div class="podium" id="podium"></div>
-
-  <div id="resultsArea">
-    <div class="state-box">
-      <div class="big">No player selected</div>
-      Enter a Player ID above to see their rank relative to the leaderboard.
+    <div class="chips">
+      <span class="chip" data-id="PLAYER-1001">RANK_01</span>
+      <span class="chip" data-id="PLAYER-1025">MID_GRID</span>
+      <span class="chip" data-id="PLAYER-1045">LAST_NODE</span>
+      <span class="chip" data-id="PLAYER-9999">INVALID_ID</span>
     </div>
-  </div>
 
-  <footer>45 players &middot; ranks calculated live from score data &middot; built for the AI mini hackathon</footer>
+    <div class="section-title"><span class="tag">01</span><h2>Top 3 // Grid Leaders</h2><span class="rule"></span></div>
+    <div class="podium" id="podium"></div>
+
+    <div id="resultsArea">
+      <div class="state"><b>NO SIGNAL LOCKED</b>Enter a Player ID above to lock onto their position.</div>
+    </div>
+
+    <footer>45 nodes online · rank recalculated live from score stream · no data cached</footer>
+  </div>
 </div>
 
 <script>
-/* ---------------------------------------------------------
-   1. DATA: 45 fictional players, deterministic pseudo-random
-   scores so the leaderboard looks realistic but is reproducible.
---------------------------------------------------------- */
-const FIRST = ["Shadow","Nova","Blaze","Vortex","Cipher","Raven","Titan","Ember","Frost","Nyx",
-  "Rogue","Phantom","Zephyr","Onyx","Kestrel","Static","Wraith","Solace","Rune","Fable",
-  "Draken","Halo","Grim","Lyric","Ashen","Vale","Quartz","Marrow","Sable","Echo",
-  "Talon","Brix","Jinx","Cove","Torque","Pyre","Glint","Marsh","Rune","Vex"];
-const SUFFIX = ["Alpha","Prime","X","Zero","One","Storm","Byte","Core","Edge","Flux",
-  "Wolf","Hawk","Ghost","King","Queen","Knight","Fox","Bolt","Star","Reaper"];
-
-function seededRandom(seed){
-  let s = seed;
-  return function(){
-    s = (s * 9301 + 49297) % 233280;
-    return s / 233280;
-  };
-}
-
+const FIRST = ["Shadow","Nova","Blaze","Vortex","Cipher","Raven","Titan","Ember","Frost","Nyx","Rogue","Phantom","Zephyr","Onyx","Kestrel","Static","Wraith","Solace","Rune","Fable","Draken","Halo","Grim","Lyric","Ashen","Vale","Quartz","Marrow","Sable","Echo","Talon","Brix","Jinx","Cove","Torque","Pyre","Glint","Marsh","Rune","Vex"];
+const SUFFIX = ["Alpha","Prime","X","Zero","One","Storm","Byte","Core","Edge","Flux","Wolf","Hawk","Ghost","King","Queen","Knight","Fox","Bolt","Star","Reaper"];
+function seededRandom(seed){ let s=seed; return function(){ s=(s*9301+49297)%233280; return s/233280; }; }
 function buildPlayers(){
-  const rand = seededRandom(1337);
-  const players = [];
-  const usedNames = new Set();
-  let topScore = 9850;
-  for(let i = 0; i < 45; i++){
-    let name;
-    do {
-      const f = FIRST[Math.floor(rand() * FIRST.length)];
-      const s = SUFFIX[Math.floor(rand() * SUFFIX.length)];
-      name = `${f} ${s}`;
-    } while(usedNames.has(name));
-    usedNames.add(name);
-
-    // Descending scores with realistic, shrinking gaps + slight jitter
-    const gap = 40 + Math.floor(rand() * 90) + i * 1.5;
-    topScore = i === 0 ? 9850 : Math.max(topScore - gap, 120);
-    players.push({
-      id: `PLAYER-${1001 + i}`,
-      name,
-      score: Math.round(topScore)
-    });
+  const rand=seededRandom(1337); const players=[]; const used=new Set(); let top=9850;
+  for(let i=0;i<45;i++){
+    let name; do{ const f=FIRST[Math.floor(rand()*FIRST.length)]; const s=SUFFIX[Math.floor(rand()*SUFFIX.length)]; name=`${f} ${s}`; }while(used.has(name));
+    used.add(name);
+    const gap=40+Math.floor(rand()*90)+i*1.5; top = i===0?9850:Math.max(top-gap,120);
+    players.push({ id:`PLAYER-${1001+i}`, name, score:Math.round(top) });
   }
   return players;
 }
-
 const PLAYERS = buildPlayers();
-
-/* ---------------------------------------------------------
-   2. RANKING LOGIC — nothing here is hardcoded.
-   Ranks are always derived by sorting the dataset by score.
---------------------------------------------------------- */
-function getRankedPlayers(){
-  // Sort by score descending. Ties broken by player ID for stability.
-  const sorted = [...PLAYERS].sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
-  return sorted.map((p, idx) => ({ ...p, rank: idx + 1 }));
-}
-
-function getTop3(ranked){
-  return ranked.slice(0, 3);
-}
-
-function findPlayerById(ranked, id){
-  const normalized = id.trim().toUpperCase();
-  return ranked.find(p => p.id.toUpperCase() === normalized) || null;
-}
-
-function getSurroundingWindow(ranked, rank){
-  const above = ranked.find(p => p.rank === rank - 1) || null;
-  const selected = ranked.find(p => p.rank === rank) || null;
-  const below = ranked.find(p => p.rank === rank + 1) || null;
-  return { above, selected, below };
-}
-
-/* ---------------------------------------------------------
-   3. RENDERING
---------------------------------------------------------- */
+function getRankedPlayers(){ return [...PLAYERS].sort((a,b)=>b.score-a.score||a.id.localeCompare(b.id)).map((p,i)=>({...p,rank:i+1})); }
 const RANKED = getRankedPlayers();
-
-function fmt(score){ return score.toLocaleString('en-US'); }
+function getTop3(r){ return r.slice(0,3); }
+function findPlayerById(r,id){ const n=id.trim().toUpperCase(); return r.find(p=>p.id.toUpperCase()===n)||null; }
+function getWindow(r,rank){ return { above:r.find(p=>p.rank===rank-1)||null, selected:r.find(p=>p.rank===rank)||null, below:r.find(p=>p.rank===rank+1)||null }; }
+function fmt(n){ return n.toLocaleString('en-US'); }
+function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
 function renderPodium(){
-  const top3 = getTop3(RANKED);
-  const classes = ['gold','silver','bronze'];
-  const labels = ['1ST','2ND','3RD'];
-  const el = document.getElementById('podium');
-  el.innerHTML = top3.map((p, i) => `
-    <div class="podium-card ${classes[i]}">
-      <div class="podium-rank">${labels[i]} PLACE</div>
-      <div class="podium-name">${escapeHtml(p.name)}</div>
-      <div class="podium-id">${p.id}</div>
-      <div class="podium-score">${fmt(p.score)}</div>
-    </div>
+  const top3=getTop3(RANKED); const cls=['gold','silver','bronze'];
+  document.getElementById('podium').innerHTML = top3.map((p,i)=>`
+    <div class="p-card ${cls[i]}"><div class="rk">RANK #${p.rank}</div><div class="nm">${esc(p.name)}</div><div class="id">${p.id}</div><div class="sc">${fmt(p.score)}</div></div>
   `).join('');
 }
-
-function escapeHtml(str){
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+function lrow(p, sel){
+  if(!p) return `<div class="empty-note">— grid boundary —</div>`;
+  return `<div class="lrow ${sel?'sel':''}"><div class="rk">#${p.rank}</div><div class="nm">${esc(p.name)}<span class="id">${p.id}</span></div><div class="sc">${fmt(p.score)}</div></div>`;
 }
-
-function renderEmptyState(){
+function renderEmpty(){
+  document.getElementById('resultsArea').innerHTML = `<div class="state"><b>NO SIGNAL LOCKED</b>Enter a Player ID above to lock onto their position.</div>`;
+}
+function renderError(msg){
+  document.getElementById('resultsArea').innerHTML = `<div class="state err"><b>SIGNAL NOT FOUND</b>${esc(msg)}</div>`;
+}
+function renderPlayer(p){
+  const {above,selected,below} = getWindow(RANKED,p.rank);
   document.getElementById('resultsArea').innerHTML = `
-    <div class="state-box">
-      <div class="big">No player selected</div>
-      Enter a Player ID above to see their rank relative to the leaderboard.
-    </div>
-  `;
-}
-
-function renderErrorState(message){
-  document.getElementById('resultsArea').innerHTML = `
-    <div class="state-box error">
-      <div class="big">Player not found</div>
-      ${escapeHtml(message)}
-    </div>
-  `;
-}
-
-function ladderRow(player, isSelected){
-  if(!player){
-    return `<div class="ladder-empty-note">— end of leaderboard —</div>`;
-  }
-  return `
-    <div class="ladder-row ${isSelected ? 'selected' : ''}">
-      <div class="rank-badge">#${player.rank}</div>
-      <div class="name">${escapeHtml(player.name)}<span class="pid">${player.id}</span></div>
-      <div class="score">${fmt(player.score)}</div>
-    </div>
-  `;
-}
-
-function renderPlayerResult(player){
-  const { above, selected, below } = getSurroundingWindow(RANKED, player.rank);
-
-  document.getElementById('resultsArea').innerHTML = `
-    <div class="section-title"><span class="num">2</span><h2>Selected Player</h2></div>
+    <div class="section-title"><span class="tag">02</span><h2>Locked Signal</h2><span class="rule"></span></div>
     <div class="detail-strip">
-      <div class="detail-cell"><div class="label">Name</div><div class="value">${escapeHtml(selected.name)}</div></div>
-      <div class="detail-cell"><div class="label">Player ID</div><div class="value">${selected.id}</div></div>
-      <div class="detail-cell accent"><div class="label">Rank</div><div class="value">#${selected.rank}</div></div>
-      <div class="detail-cell accent"><div class="label">Score</div><div class="value">${fmt(selected.score)}</div></div>
+      <div class="d-cell"><div class="lb">Name</div><div class="vl">${esc(selected.name)}</div></div>
+      <div class="d-cell"><div class="lb">ID</div><div class="vl">${selected.id}</div></div>
+      <div class="d-cell accent"><div class="lb">Rank</div><div class="vl">#${selected.rank}</div></div>
+      <div class="d-cell accent"><div class="lb">Score</div><div class="vl">${fmt(selected.score)}</div></div>
     </div>
-
-    <div class="section-title"><span class="num">3</span><h2>Nearby Standings</h2></div>
-    <div class="ladder">
-      ${ladderRow(above, false)}
-      ${ladderRow(selected, true)}
-      ${ladderRow(below, false)}
-    </div>
+    <div class="section-title"><span class="tag">03</span><h2>Adjacent Nodes</h2><span class="rule"></span></div>
+    <div class="ladder">${lrow(above,false)}${lrow(selected,true)}${lrow(below,false)}</div>
   `;
 }
-
-/* ---------------------------------------------------------
-   4. SEARCH HANDLER + EDGE CASES
---------------------------------------------------------- */
 function handleSearch(){
-  const input = document.getElementById('playerInput');
-  const raw = input.value;
-
-  if(!raw || raw.trim() === ''){
-    renderErrorState('Enter a Player ID before searching — e.g. PLAYER-1024.');
-    return;
-  }
-
-  const player = findPlayerById(RANKED, raw);
-  if(!player){
-    renderErrorState(`No player matches "${raw.trim()}". Double-check the ID and try again.`);
-    return;
-  }
-
-  renderPlayerResult(player);
+  const raw = document.getElementById('playerInput').value;
+  if(!raw || raw.trim()===''){ renderError('Enter a Player ID before scanning — e.g. PLAYER-1024.'); return; }
+  const p = findPlayerById(RANKED, raw);
+  if(!p){ renderError(`No node matches "${raw.trim()}". Check the ID and rescan.`); return; }
+  renderPlayer(p);
 }
-
 document.getElementById('searchBtn').addEventListener('click', handleSearch);
-document.getElementById('playerInput').addEventListener('keydown', (e) => {
-  if(e.key === 'Enter') handleSearch();
-});
-document.querySelectorAll('.chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    document.getElementById('playerInput').value = chip.dataset.id;
-    handleSearch();
-  });
-});
+document.getElementById('playerInput').addEventListener('keydown', e=>{ if(e.key==='Enter') handleSearch(); });
+document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click', ()=>{ document.getElementById('playerInput').value=c.dataset.id; handleSearch(); }));
+renderPodium(); renderEmpty();
 
-/* ---------------------------------------------------------
-   5. INITIAL RENDER
---------------------------------------------------------- */
-renderPodium();
-renderEmptyState();
+/* Animated background: floating neon particles */
+(function spawnParticles(){
+  const holder = document.getElementById('bgParticles');
+  if(!holder || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const colors = ['#00F0FF', '#FF2FD1', '#F6FF3C', '#7A3CFF'];
+  const count = 26;
+  for(let i = 0; i < count; i++){
+    const el = document.createElement('div');
+    el.className = 'particle';
+    const size = 2 + Math.random() * 3;
+    const left = Math.random() * 100;
+    const duration = 9 + Math.random() * 10;
+    const delay = Math.random() * 14;
+    const drift = (Math.random() * 60 - 30).toFixed(0) + 'px';
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    el.style.left = left + 'vw';
+    el.style.color = color;
+    el.style.background = color;
+    el.style.setProperty('--drift', drift);
+    el.style.animationDuration = duration + 's';
+    el.style.animationDelay = '-' + delay + 's';
+    holder.appendChild(el);
+  }
+})();
 </script>
 </body>
 </html>
