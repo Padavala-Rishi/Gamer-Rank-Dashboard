@@ -139,6 +139,7 @@ export const JOURNAL_KINDS = [
   ["checkin", "Mental check-in"],
   ["goal", "Goal reflection"],
   ["lessons", "Lessons learned"],
+  ["relationships", "Relationship check-in"],
 ] as const satisfies readonly Option[];
 export const JOURNAL_KIND_VALUES = values(JOURNAL_KINDS);
 
@@ -161,6 +162,7 @@ export const JOURNAL_PROMPTS: Record<string, string[]> = {
   ],
   goal: ["Which goal am I reflecting on, and why now?", "What is working?", "What is not working?", "What will I adjust?"],
   lessons: ["What happened?", "What did it teach me?", "How will I apply it?"],
+  relationships: ["Who matters most to me right now?", "Who have I neglected?", "Who should I contact this week?", "Which relationships deserve more effort?"],
   free: [],
 };
 

@@ -1,5 +1,7 @@
 # Gamer Rank Dashboard
 
+> **Also in this repository:** [`human-os/`](human-os/) — *Human OS*, a full-stack personal operating system for human development (goals, planning, habits, focus, learning, finance, reflection, and an optional AI assistant). See [`human-os/README.md`](human-os/README.md). The Gamer Rank Dashboard below is unchanged.
+
 A leaderboard UI built for a 2-hour AI mini hackathon. Given a Player ID, it dynamically shows the top 3 overall players plus that player's score and their immediate neighbors on the leaderboard.
 
 ## Problem Statement

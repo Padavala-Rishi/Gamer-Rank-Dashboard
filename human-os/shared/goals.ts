@@ -40,12 +40,12 @@ export function goalProgress(g: GoalLike, i: GoalInputs): number | null {
       return clamp01((c - start) / (t - start));
     }
     case "tasks":
-      return i.tasksTotal ? i.tasksDone / i.tasksTotal : childAvg;
+      return blend(i.tasksTotal ? i.tasksDone / i.tasksTotal : null, childAvg);
     case "manual":
       return g.manual_progress != null ? clamp01(g.manual_progress / 100) : childAvg;
     case "milestones":
     default:
-      return i.milestonesTotal ? i.milestonesDone / i.milestonesTotal : childAvg;
+      return blend(i.milestonesTotal ? i.milestonesDone / i.milestonesTotal : null, childAvg);
   }
 }
 
@@ -111,6 +111,13 @@ export function smartCheck(g: GoalLike, milestonesTotal: number): SmartCheck[] {
     },
     { key: "time_bound", label: "Time-bound", ok: !!g.deadline, hint: "Set a deadline." },
   ];
+}
+
+/** A goal's own checkpoints and its sub-goals both count, equally weighted. */
+function blend(own: number | null, children: number | null): number | null {
+  if (own == null) return children;
+  if (children == null) return own;
+  return (own + children) / 2;
 }
 
 function clamp01(n: number): number {

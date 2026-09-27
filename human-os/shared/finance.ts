@@ -50,7 +50,8 @@ export function formatMoney(n: number, currency = "INR", compact = false): strin
     return new Intl.NumberFormat(currency === "INR" ? "en-IN" : undefined, {
       style: "currency",
       currency,
-      maximumFractionDigits: compact || Math.abs(n) >= 1000 ? 0 : 2,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: compact || Math.abs(n) >= 1000 || Number.isInteger(n) ? 0 : 2,
       notation: compact && Math.abs(n) >= 100000 ? "compact" : "standard",
     }).format(n);
   } catch {

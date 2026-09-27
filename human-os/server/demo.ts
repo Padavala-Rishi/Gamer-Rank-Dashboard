@@ -246,7 +246,7 @@ export function loadDemoData(db: DB, ctx: Ctx): void {
 
   // Finance
   const bank = mk("financial_accounts", { name: "SBI Savings", kind: "savings", opening_balance: 18500 });
-  const wallet = mk("financial_accounts", { name: "Cash & UPI", kind: "cash", opening_balance: 1200 });
+  const wallet = mk("financial_accounts", { name: "Cash & UPI", kind: "cash", opening_balance: 3500 });
   const fund = mk("financial_accounts", { name: "Emergency fund (RD)", kind: "savings", opening_balance: 19000 });
   mk("financial_accounts", { name: "Education loan", kind: "loan", opening_balance: 85000 });
   for (let m = 2; m >= 0; m--) {
@@ -261,7 +261,8 @@ export function loadDemoData(db: DB, ctx: Ctx): void {
       const d = addDays(d0, Math.floor(rand() * 28));
       if (d > T) continue;
       const cat = pick(["Food", "Food", "Transport", "Shopping", "Entertainment", "Education", "Subscriptions"]);
-      mk("transactions", { account_id: pick([bank.id, wallet.id]), kind: "expense", amount: Math.round(80 + rand() * (cat === "Shopping" ? 2500 : 700)), occurred_on: d, category: cat });
+      const small = cat === "Food" || cat === "Transport";
+      mk("transactions", { account_id: small && rand() < 0.4 ? wallet.id : bank.id, kind: "expense", amount: Math.round(small ? 40 + rand() * 160 : 80 + rand() * (cat === "Shopping" ? 2500 : 700)), occurred_on: d, category: cat });
     }
   }
   for (const [category, limit] of [["Food", 4000], ["Transport", 1500], ["Entertainment", 1200], ["Shopping", 2500]] as const) mk("budgets", { category, monthly_limit: limit });
