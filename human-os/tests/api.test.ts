@@ -275,6 +275,15 @@ describe("full workflow with demo data", () => {
     expect(bTasks.filter((t) => t.project_id).every((t) => bProjects.has(t.project_id!))).toBe(true);
   });
 
+  it("demo vision fills an empty vision but never overwrites the user's own", async () => {
+    const a = await signup("vision-empty@example.com");
+    await a.post("/api/onboarding").send({ display_name: "A", load_demo: true });
+    expect((await a.get("/api/vision")).body.identity).toBeTruthy();
+    const b = await signup("vision-own@example.com");
+    await b.post("/api/onboarding").send({ identity: "My own words", load_demo: true });
+    expect((await b.get("/api/vision")).body.identity).toBe("My own words");
+  });
+
   it("removes demo data without touching real data", async () => {
     const a = await signup("cleanup@example.com");
     const mine = (await a.post("/api/r/tasks").send({ title: "My real task" })).body;

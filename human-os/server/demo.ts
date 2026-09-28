@@ -33,7 +33,11 @@ export function loadDemoData(db: DB, ctx: Ctx): void {
   db.prepare(
     `INSERT INTO visions (user_id, identity, ideal_life, what_matters, non_negotiables, success_definition, regrets, current_reality, constraints, is_demo, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
-     ON CONFLICT(user_id) DO NOTHING`,
+     ON CONFLICT(user_id) DO UPDATE SET identity = excluded.identity, ideal_life = excluded.ideal_life, what_matters = excluded.what_matters,
+       non_negotiables = excluded.non_negotiables, success_definition = excluded.success_definition, regrets = excluded.regrets,
+       current_reality = excluded.current_reality, constraints = excluded.constraints, is_demo = 1, updated_at = excluded.updated_at
+     -- Only fill a vision the user hasn't written; never overwrite their own words.
+     WHERE COALESCE(visions.identity, visions.ideal_life, visions.what_matters, visions.non_negotiables, visions.success_definition, visions.regrets, visions.current_reality, visions.constraints) IS NULL`,
   ).run(
     ctx.userId,
     "A calm, capable software engineer who keeps promises to himself, stays healthy, and makes time for the people he loves.",
