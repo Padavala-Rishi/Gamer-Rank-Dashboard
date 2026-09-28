@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Eye, FileText, Link2, Pencil, Pin, Plus, Search, Trash2, X } from "lucide-react";
 import { useApi, useDocumentTitle, useMutate, useResource } from "../lib/hooks";
 import type { Goal, JournalEntry, Note, Person, Project, Skill, Subject, Task } from "../lib/types";
@@ -132,7 +132,8 @@ export default function Knowledge() {
 }
 
 function NoteView({ note, all }: { note: Note; all: Note[] }) {
-  const [editing, setEditing] = useState(() => new URLSearchParams(window.location.search).get("edit") === "1");
+  const [params, setParams] = useSearchParams();
+  const [editing, setEditing] = useState(() => params.get("edit") === "1");
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body ?? "");
   const [folder, setFolder] = useState(note.folder ?? "");
@@ -154,7 +155,10 @@ function NoteView({ note, all }: { note: Note; all: Note[] }) {
     try {
       await mut.update("notes", note.id, { title, body, folder: folder || null, tags: tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean) }, { success: "Note saved", silentError: true });
       setEditing(false);
-      window.history.replaceState(null, "", `/knowledge/${note.id}`);
+      if (params.has("edit")) {
+        params.delete("edit");
+        setParams(params, { replace: true });
+      }
     } catch (e) {
       setError(e instanceof ApiError ? Object.values(e.fields ?? {})[0] ?? e.message : "Couldn't save");
     }

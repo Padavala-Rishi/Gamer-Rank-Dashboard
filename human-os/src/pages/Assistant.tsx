@@ -8,6 +8,7 @@ import { Markdown } from "../components/Markdown";
 import { AUDIT_AREAS, label } from "../../shared/constants";
 import { fmtDate } from "../lib/format";
 import { useQueryClient } from "@tanstack/react-query";
+import { IS_LOCAL } from "../lib/mode";
 
 interface AiStatus {
   configured: boolean;
@@ -40,7 +41,15 @@ export default function Assistant() {
       />
       {status.data && !status.data.configured && (
         <div className="card card-pad" style={{ marginBottom: 16, background: "var(--info-soft)", color: "var(--info)" }}>
-          <strong>AI isn't configured on this server.</strong> Chat and AI interpretation are unavailable. The Life Audit below still works — it uses transparent rules on your own data. To enable AI, the administrator sets <code>ANTHROPIC_API_KEY</code>.
+          {IS_LOCAL ? (
+            <>
+              <strong>The on-device version has no AI assistant.</strong> Nothing leaves your phone. The Life Audit below works fully — it uses transparent rules on your own data.
+            </>
+          ) : (
+            <>
+              <strong>AI isn't configured on this server.</strong> Chat and AI interpretation are unavailable. The Life Audit below still works — it uses transparent rules on your own data. To enable AI, the administrator sets <code>ANTHROPIC_API_KEY</code>.
+            </>
+          )}
         </div>
       )}
       {status.data?.configured && !status.data.enabled && (

@@ -3,6 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { get, onUnauthorized, setSession } from "./lib/api";
 import { useProfile } from "./lib/hooks";
+import { IS_EMBED } from "./lib/mode";
 import type { User } from "./lib/types";
 import { ToastProvider } from "./components/Toast";
 import { ConfirmProvider, Skeleton } from "./components/ui";
@@ -42,7 +43,10 @@ function useApplyAppearance() {
   useEffect(() => {
     const root = document.documentElement;
     if (!data) return;
-    if (data.theme === "system") root.removeAttribute("data-theme");
+    if (data.theme === "system") {
+      // In the preview the host page sets the theme; only clear our own explicit choice.
+      if (!IS_EMBED) root.removeAttribute("data-theme");
+    }
     else root.setAttribute("data-theme", data.theme);
     root.setAttribute("data-density", data.density);
     if (data.reduced_motion === "reduce") root.setAttribute("data-motion", "reduce");

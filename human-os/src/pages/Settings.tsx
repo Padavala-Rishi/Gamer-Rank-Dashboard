@@ -9,6 +9,7 @@ import { ApiError, get, post, setSession } from "../lib/api";
 import { NOTIFICATION_KINDS } from "../../shared/constants";
 import { ALL_NAV } from "../layout/nav";
 import { useToast } from "../components/Toast";
+import { IS_EMBED, IS_LOCAL } from "../lib/mode";
 
 type Tab = "profile" | "appearance" | "notifications" | "preferences" | "ai" | "data" | "security";
 
@@ -34,7 +35,7 @@ export default function Settings() {
           ["preferences", "Habits & focus"],
           ["ai", "AI"],
           ["data", "Data & privacy"],
-          ["security", "Security"],
+          ...(IS_LOCAL ? [] : ([["security", "Security"]] as const)),
         ]}
       />
       {!profile.data ? (
@@ -47,7 +48,7 @@ export default function Settings() {
           {tab === "preferences" && <PreferencesTab p={profile.data} />}
           {tab === "ai" && <AiTab p={profile.data} />}
           {tab === "data" && <DataTab />}
-          {tab === "security" && <SecurityTab />}
+          {tab === "security" && !IS_LOCAL && <SecurityTab />}
         </>
       )}
     </div>
@@ -272,9 +273,13 @@ function DataTab() {
   };
   return (
     <div className="col gap-16">
+      {IS_LOCAL && <DeviceStorageCard />}
       <Card title="Export">
         <div className="row between wrap">
-          <p className="small muted">Download everything you've stored as JSON — a portable copy you own.</p>
+          <p className="small muted">
+            {IS_LOCAL ? "Download a backup of everything as a JSON file. Do this regularly — it's your only copy outside this device." : "Download everything you've stored as JSON — a portable copy you own."}
+            {IS_EMBED ? " (Downloads are blocked inside this preview.)" : ""}
+          </p>
           <Button onClick={exportData} loading={busy}>
             <Download size={15} aria-hidden /> Export my data
           </Button>
@@ -311,6 +316,7 @@ function DataTab() {
           )}
         </div>
       </Card>
+      {!IS_LOCAL && (
       <Card title="Privacy">
         <ul className="small ink-2" style={{ margin: 0, paddingLeft: 18 }}>
           <li>Your data is private to your account; every request is checked against your identity on the server.</li>
@@ -319,7 +325,45 @@ function DataTab() {
           <li>AI requests (if enabled) send a summary to Anthropic's API; journal text only if you opt in.</li>
         </ul>
       </Card>
+      )}
     </div>
+  );
+}
+
+function DeviceStorageCard() {
+  const status = useApi<{ persistent: boolean; last_saved_at: string | null; preview: boolean }>("/local/status", { refetchInterval: 10_000 });
+  const confirm = useConfirm();
+  const [text, setText] = useState("");
+  return (
+    <Card title="Stored on this device">
+      <div className="col gap-12">
+        <p className="small">
+          Everything lives only in this browser on this device — no account, no server, nothing sent anywhere. It works offline.
+          {status.data && !status.data.persistent && <strong> This browser isn't letting Human OS save (private browsing?), so changes will be lost when you close it.</strong>}
+        </p>
+        <p className="small muted">
+          Clearing Safari's website data deletes it, and other devices won't see it. Export a backup now and then.
+          {status.data?.last_saved_at ? ` Last saved ${new Date(status.data.last_saved_at).toLocaleTimeString()}.` : ""}
+        </p>
+        <div className="row wrap">
+          <input className="input" style={{ maxWidth: 220 }} value={text} onChange={(e) => setText(e.target.value)} placeholder='Type "ERASE" to enable' aria-label='Type ERASE to confirm' />
+          <Button
+            variant="danger"
+            disabled={text !== "ERASE"}
+            onClick={async () => {
+              if (!(await confirm({ title: "Erase everything on this device?", body: "All your goals, tasks, journal entries and other data will be deleted. Export a backup first if you want to keep it.", confirm: "Erase everything", danger: true }))) return;
+              if (__LOCAL_MODE__) {
+                const m = await import("../local/backend");
+                await m.eraseDevice();
+                window.location.reload();
+              }
+            }}
+          >
+            Erase everything on this device
+          </Button>
+        </div>
+      </div>
+    </Card>
   );
 }
 

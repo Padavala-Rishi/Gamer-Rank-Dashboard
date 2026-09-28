@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
+  define: { __LOCAL_MODE__: false, __EMBED_MODE__: false },
   server: {
     port: 5173,
     proxy: { "/api": { target: "http://localhost:3001", changeOrigin: false } },

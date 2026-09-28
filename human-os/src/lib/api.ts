@@ -1,4 +1,8 @@
 // Thin fetch wrapper: JSON in/out, cookies for auth, readable errors.
+// In the on-device build the same calls are answered by the in-browser backend.
+import "./mode";
+
+let localBackend: Promise<typeof import("../local/backend")> | null = null;
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -20,30 +24,39 @@ export function onUnauthorized(fn: Listener) {
 }
 
 export async function api<T = unknown>(path: string, init: { method?: string; body?: unknown; signal?: AbortSignal } = {}): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(`/api${path}`, {
-      method: init.method ?? (init.body !== undefined ? "POST" : "GET"),
-      headers: init.body !== undefined ? { "Content-Type": "application/json" } : undefined,
-      body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
-      credentials: "same-origin",
-      signal: init.signal,
-    });
-  } catch (e) {
-    if ((e as Error).name === "AbortError") throw e;
-    throw new ApiError(0, navigator.onLine ? "Couldn't reach the server. Please try again." : "You're offline. This will work again once you reconnect.");
-  }
-  const text = await res.text();
+  let status: number;
   let data: unknown = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = null;
+  if (__LOCAL_MODE__) {
+    localBackend ??= import("../local/backend");
+    const r = await (await localBackend).request(init.method ?? (init.body !== undefined ? "POST" : "GET"), path, init.body);
+    status = r.status;
+    data = r.data;
+  } else {
+    let res: Response;
+    try {
+      res = await fetch(`/api${path}`, {
+        method: init.method ?? (init.body !== undefined ? "POST" : "GET"),
+        headers: init.body !== undefined ? { "Content-Type": "application/json" } : undefined,
+        body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+        credentials: "same-origin",
+        signal: init.signal,
+      });
+    } catch (e) {
+      if ((e as Error).name === "AbortError") throw e;
+      throw new ApiError(0, navigator.onLine ? "Couldn't reach the server. Please try again." : "You're offline. This will work again once you reconnect.");
+    }
+    status = res.status;
+    const text = await res.text();
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = null;
+    }
   }
-  if (!res.ok) {
+  if (status < 200 || status >= 300) {
     const body = (data ?? {}) as { error?: string; fields?: Record<string, string>; details?: unknown };
-    if (res.status === 401 && !path.startsWith("/auth/")) unauthorizedListeners.forEach((fn) => fn());
-    throw new ApiError(res.status, body.error ?? `Request failed (${res.status})`, body.fields, body.details);
+    if (status === 401 && !path.startsWith("/auth/")) unauthorizedListeners.forEach((fn) => fn());
+    throw new ApiError(status, body.error ?? `Request failed (${status})`, body.fields, body.details);
   }
   return data as T;
 }

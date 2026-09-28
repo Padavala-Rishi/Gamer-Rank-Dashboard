@@ -6,3 +6,5 @@ data/*.db-*
 test-results/
 playwright-report/
 *.log
+dist-local/
+dist-embed/

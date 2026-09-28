@@ -6,6 +6,7 @@ import { useUI } from "./UIContext";
 import { useApi, useMutate, useOnline, useProfile } from "../lib/hooks";
 import { Button, Modal } from "../components/ui";
 import { post } from "../lib/api";
+import { IS_LOCAL } from "../lib/mode";
 import { useNavigate } from "react-router-dom";
 
 interface Notif {
@@ -188,7 +189,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Button>
           <Notifications />
         </header>
-        {!online && (
+        {!online && !IS_LOCAL && (
           <div className="offline-banner" role="alert">
             You're offline. You can keep reading, but changes can't be saved until you reconnect.
           </div>
