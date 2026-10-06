@@ -4,13 +4,15 @@ import { AlertTriangle, BookOpen, Brain, CalendarClock, CalendarPlus, Gift, Hear
 import { useApi, useDocumentTitle, useMutate, useProfile, useTz } from "../lib/hooks";
 import { fmtLongDate, fmtMin, fmtTimeInTz, greeting } from "../lib/format";
 import type { Checkin, EventOccurrence, FocusSession, GoalView, HabitView, Task } from "../lib/types";
-import { Button, Card, Empty, ErrorState, Modal, Progress, Skeleton } from "../components/ui";
+import { Button, Card, Empty, ErrorState, Modal, Skeleton } from "../components/ui";
 import { TaskRow, GoalProgressLine } from "../components/entities";
 import { CheckinForm, HabitDayControl, StreakBadge } from "../components/daily";
 import { PlannerModal } from "../components/Planner";
 import { NowContent } from "../layout/NowPanel";
 import { useUI } from "../layout/UIContext";
 import { DASHBOARD_WIDGETS, label } from "../../shared/constants";
+import { ProgressRing, CountUp } from "../components/rings";
+import { parseCapture } from "../../shared/capture";
 import { EVENT_KINDS } from "../../shared/constants";
 import { EVENT_COLOR } from "../lib/colors";
 
@@ -90,32 +92,7 @@ export default function Today() {
 
   return (
     <div className="page">
-      <header className="page-header">
-        <div>
-          <p className="muted small">{fmtLongDate(d.date)}</p>
-          <h1>
-            {greeting(d.now_min)}
-            {name ? `, ${name}` : ""}
-          </h1>
-          <div className="row mt-8" style={{ maxWidth: 360 }}>
-            <div className="grow">
-              <Progress value={d.day_progress} label="How much of your planned day has passed" />
-            </div>
-            <span className="small muted num">{Math.round(d.day_progress * 100)}% of your day</span>
-          </div>
-        </div>
-        <div className="row wrap">
-          <Button variant="ghost" icon onClick={() => setCustomize(true)} aria-label="Customise dashboard">
-            <Settings2 size={16} />
-          </Button>
-          <Button onClick={() => setPlanner("today")}>
-            <CalendarPlus size={16} aria-hidden /> Plan my day
-          </Button>
-          <Button variant="now" className="hide-mobile" onClick={ui.openNow}>
-            <Zap size={16} aria-hidden /> What should I do now?
-          </Button>
-        </div>
-      </header>
+      <Hero d={d} name={name} onPlan={() => setPlanner("today")} onCustomize={() => setCustomize(true)} onNow={ui.openNow} />
       <div className="dash">
         <div className="col" style={{ gap: "var(--space)" }}>
           {leftCol}
@@ -127,6 +104,96 @@ export default function Today() {
       <PlannerModal open={planner !== null} initialDate={planner ?? "today"} onClose={() => setPlanner(null)} />
       <CustomizeModal open={customize} onClose={() => setCustomize(false)} />
     </div>
+  );
+}
+
+function Hero({ d, name, onPlan, onCustomize, onNow }: { d: TodayData; name?: string | null; onPlan: () => void; onCustomize: () => void; onNow: () => void }) {
+  const seen = new Set<string>();
+  const planned = [...d.mits, ...d.due_today, ...d.scheduled_today].filter((t) => (seen.has(t.id) ? false : (seen.add(t.id), true)));
+  const done = d.snapshot.tasks_done ?? 0;
+  const left = planned.length;
+  const taskRatio = done + left > 0 ? done / (done + left) : null;
+  const hs = d.snapshot.habits_scheduled ?? 0;
+  const hd = d.snapshot.habits_done ?? 0;
+  const habitRatio = hs > 0 ? hd / hs : null;
+  const parts = [left ? `${left} thing${left === 1 ? "" : "s"} planned` : "Nothing planned yet", hs ? `${hs - hd} habit${hs - hd === 1 ? "" : "s"} to go` : null].filter(Boolean);
+  const allDone = left === 0 && done > 0 && (hs === 0 || hd === hs);
+  return (
+    <section className="hero" aria-label="Today at a glance">
+      <div>
+        <p className="hero-date">{fmtLongDate(d.date)}</p>
+        <h1>
+          {greeting(d.now_min)}
+          {name ? `, ${name}` : ""}
+        </h1>
+        <p className="hero-sub">{allDone ? "Everything planned is done. Rest is part of the plan too." : parts.join(" · ")}</p>
+        <div className="hero-actions">
+          <Button variant="primary" onClick={onPlan}>
+            <CalendarPlus size={16} aria-hidden /> Plan my day
+          </Button>
+          <Button variant="now" className="hide-mobile" onClick={onNow}>
+            <Zap size={16} aria-hidden /> What should I do now?
+          </Button>
+          <Button variant="ghost" icon onClick={onCustomize} aria-label="Customise dashboard">
+            <Settings2 size={16} />
+          </Button>
+        </div>
+      </div>
+      <div className="hero-rings">
+        <Link to="/tasks" className="ring-tile" aria-label="Tasks done today">
+          <ProgressRing value={taskRatio} label="Tasks done today">
+            <span className="num">{taskRatio == null ? "–" : <CountUp value={done} />}</span>
+          </ProgressRing>
+          <span className="ring-label">Tasks</span>
+          <span className="ring-sub">{taskRatio == null ? "none yet" : `${done} of ${done + left}`}</span>
+        </Link>
+        <Link to="/habits" className="ring-tile" aria-label="Habits done today">
+          <ProgressRing value={habitRatio} tone="warm" label="Habits done today">
+            <span className="num">{habitRatio == null ? "–" : <CountUp value={hd} />}</span>
+          </ProgressRing>
+          <span className="ring-label">Habits</span>
+          <span className="ring-sub">{habitRatio == null ? "none today" : `${hd} of ${hs}`}</span>
+        </Link>
+        <div className="ring-tile" style={{ cursor: "default" }}>
+          <ProgressRing value={d.day_progress} tone="cool" label="Day so far">
+            <span className="num">
+              <CountUp value={Math.round(d.day_progress * 100)} />
+              <small style={{ fontSize: 11, fontWeight: 500 }}>%</small>
+            </span>
+          </ProgressRing>
+          <span className="ring-label">Day</span>
+          <span className="ring-sub">so far</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function QuickAdd({ date }: { date: string }) {
+  const [text, setText] = useState("");
+  const mut = useMutate();
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const t = text.trim();
+    if (!t) return;
+    const p = parseCapture(t, date);
+    try {
+      await mut.create("tasks", { title: p.title, due_date: p.date, due_time: p.time, priority: p.priority ?? "medium", scheduled_date: p.date ? null : date }, { success: "Added to today" });
+      setText("");
+    } catch {
+      /* toast shown */
+    }
+  };
+  return (
+    <form className="quick-add" onSubmit={submit}>
+      <Plus size={16} aria-hidden />
+      <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a task… try “call mom tomorrow 6pm”" aria-label="Add a task for today" maxLength={300} />
+      {text.trim() && (
+        <Button type="submit" size="sm" variant="primary" loading={mut.pending}>
+          Add
+        </Button>
+      )}
+    </form>
   );
 }
 
@@ -162,6 +229,7 @@ function PrioritiesWidget({ d, onPlan }: { d: TodayData; onPlan: () => void }) {
         </>
       }
     >
+      <QuickAdd date={d.date} />
       {total === 0 ? (
         <Empty icon={<Target size={20} />} title="No priorities set" action={<Button variant="primary" onClick={onPlan}>Plan my day</Button>}>
           Pick 1–3 things that would make today a good day.

@@ -6,6 +6,7 @@ import "@fontsource-variable/inter";
 import "@fontsource-variable/source-serif-4";
 import "./styles/tokens.css";
 import "./styles/app.css";
+import "./styles/polish.css";
 import { App } from "./App";
 import { ApiError } from "./lib/api";
 import { IS_EMBED, IS_LOCAL } from "./lib/mode";

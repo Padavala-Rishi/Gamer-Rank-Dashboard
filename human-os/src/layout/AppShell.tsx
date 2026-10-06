@@ -198,7 +198,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
         <DemoBanner />
         <main id="main" tabIndex={-1} style={{ outline: "none" }}>
-          {children}
+          <div key={loc.pathname} className="page-enter">
+            {children}
+          </div>
         </main>
       </div>
 

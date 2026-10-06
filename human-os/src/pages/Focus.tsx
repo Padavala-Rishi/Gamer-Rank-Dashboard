@@ -232,10 +232,27 @@ function RunningSession({ s }: { s: FocusSession }) {
         <p className="now-action" style={{ maxWidth: 640 }}>
           {s.objective ?? "Focus"}
         </p>
-        <div className="timer" role="timer" aria-live="off" aria-label={`${over ? "Over time by" : "Remaining"} ${mm} minutes ${ss} seconds`} style={{ color: over ? "var(--accent)" : undefined, opacity: pause.pausedAt ? 0.45 : 1 }}>
-          {display}
+        <div className={`timer-ring ${pause.pausedAt || over ? "" : "running"}`}>
+          <svg viewBox="0 0 200 200" aria-hidden>
+            <circle cx="100" cy="100" r="92" fill="none" stroke="var(--ring-track)" strokeWidth="7" />
+            <circle
+              cx="100"
+              cy="100"
+              r="92"
+              fill="none"
+              stroke={over ? "var(--ring-warm)" : "var(--accent)"}
+              strokeWidth="7"
+              strokeLinecap="round"
+              strokeDasharray={2 * Math.PI * 92}
+              strokeDashoffset={2 * Math.PI * 92 * (1 - Math.min(1, focusedMs / plannedMs))}
+              style={{ transition: "stroke-dashoffset 900ms linear, stroke 400ms ease" }}
+            />
+          </svg>
+          <div className="timer" role="timer" aria-live="off" aria-label={`${over ? "Over time by" : "Remaining"} ${mm} minutes ${ss} seconds`} style={{ color: over ? "var(--accent)" : undefined, opacity: pause.pausedAt ? 0.45 : 1 }}>
+            {display}
+          </div>
+          <span className="timer-sub">{pause.pausedAt ? "Paused" : over ? "Over time" : "Remaining"}</span>
         </div>
-        {pause.pausedAt && <p className="muted">Paused</p>}
         {over && !isTwoMin && (
           <div className="col gap-8" style={{ alignItems: "center" }}>
             <p className="strong">Planned time is up. Nice work.</p>

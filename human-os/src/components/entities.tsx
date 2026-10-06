@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertCircle, AlertTriangle, CheckCircle2, CircleDashed, Clock, Lock, MinusCircle, Repeat, TrendingUp, Zap } from "lucide-react";
 import type { GoalView, LifeArea, Project, Task, Goal } from "../lib/types";
@@ -6,6 +6,7 @@ import { useMutate, useResource, useToday } from "../lib/hooks";
 import { dueClass, fmtDate, fmtMin } from "../lib/format";
 import { useUI } from "../layout/UIContext";
 import { describeRecurrence } from "../../shared/recurrence";
+import { burst } from "../lib/celebrate";
 import { PACE_LABEL, type Pace } from "../../shared/goals";
 import { useToast } from "./Toast";
 
@@ -62,9 +63,14 @@ export function TaskRow({ task, showProject = true, onOpen, compact = false }: {
   const toast = useToast();
   const lk = useLookups();
   const done = task.status === "done";
+  const [justDone, setJustDone] = useState(false);
   const toggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const next = done ? "todo" : "done";
+    if (next === "done") {
+      burst(e.currentTarget);
+      setJustDone(true);
+    }
     try {
       await mut.update("tasks", task.id, { status: next }, { silentError: false });
       if (next === "done")
@@ -80,7 +86,7 @@ export function TaskRow({ task, showProject = true, onOpen, compact = false }: {
   const open = () => (onOpen ? onOpen(task) : ui.openTask(task as unknown as Record<string, unknown>));
   const dc = dueClass(task.due_date, today);
   return (
-    <div className={`item clickable ${done ? "done" : ""}`} onClick={open}>
+    <div className={`item clickable ${done ? "done" : ""} ${justDone ? "just-done" : ""}`} onClick={open}>
       <span className={`pri pri-${task.priority}`} aria-hidden />
       <button
         className={`checkbox ${task.priority === "critical" ? "crit" : task.priority === "high" ? "high" : ""}`}

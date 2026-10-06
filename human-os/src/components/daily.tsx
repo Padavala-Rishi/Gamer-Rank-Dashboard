@@ -4,13 +4,15 @@ import type { Checkin, HabitView } from "../lib/types";
 import { useMutate, useToday } from "../lib/hooks";
 import { Button, Field, Scale } from "./ui";
 import { ApiError } from "../lib/api";
+import { burst } from "../lib/celebrate";
 
 /** Done / minimum / skip controls for one habit on one day. Clicking the active state clears it. */
 export function HabitDayControl({ habit, date, compact = false }: { habit: HabitView; date: string; compact?: boolean }) {
   const mut = useMutate();
   const log = habit.logs.find((l) => l.date === date);
   const status = log?.status ?? null;
-  const set = async (s: "done" | "minimum" | "skipped") => {
+  const set = async (s: "done" | "minimum" | "skipped", el?: Element) => {
+    if (el && status !== s && s !== "skipped") burst(el, s === "done" ? 12 : 7);
     try {
       if (status === s && log) await mut.remove("habit-logs", log.id);
       else await mut.create("habit-logs", { habit_id: habit.id, date, status: s, value: s === "done" ? habit.target_value : s === "minimum" ? habit.minimum_value : null });
@@ -21,12 +23,12 @@ export function HabitDayControl({ habit, date, compact = false }: { habit: Habit
   const minLabel = habit.minimum_value != null ? `Minimum (${habit.minimum_value}${habit.unit ? " " + habit.unit : ""})` : "Minimum version";
   return (
     <div className="seg" role="group" aria-label={`Log “${habit.title}”`}>
-      <button aria-pressed={status === "done"} onClick={() => set("done")} title={habit.target_value != null ? `Target: ${habit.target_value} ${habit.unit ?? ""}` : "Done"}>
+      <button aria-pressed={status === "done"} onClick={(e) => set("done", e.currentTarget)} title={habit.target_value != null ? `Target: ${habit.target_value} ${habit.unit ?? ""}` : "Done"}>
         <Check size={14} aria-hidden />
         {!compact && "Done"}
         {compact && <span className="sr-only">Done</span>}
       </button>
-      <button aria-pressed={status === "minimum"} onClick={() => set("minimum")} title={minLabel}>
+      <button aria-pressed={status === "minimum"} onClick={(e) => set("minimum", e.currentTarget)} title={minLabel}>
         <Minus size={14} aria-hidden />
         {!compact && "Min"}
         {compact && <span className="sr-only">{minLabel}</span>}
