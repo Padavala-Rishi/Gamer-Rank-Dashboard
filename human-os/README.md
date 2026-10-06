@@ -55,6 +55,8 @@ One Node process serves the API and the built app. Put it behind HTTPS (cookies 
 
 Deploy it free on Netlify: connect the repository (branch `claude/human-os-productivity-app-2heqwy`). The `netlify.toml` at the repository root sets the build command and folder, so no settings need typing. Then open the site in Safari and use **Share → Add to Home Screen**.
 
+Vercel works the same way: `vercel.json` at the repository root sets the build, so import the repository and deploy; no settings need typing.
+
 Notes: on iPhone, the Home Screen app has its own storage, separate from Safari — create your data inside the Home Screen app. Export a backup now and then (Settings → Data & privacy).
 
 ## Architecture
