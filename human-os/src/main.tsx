@@ -25,7 +25,7 @@ const queryClient = new QueryClient({
 const Router = IS_EMBED ? MemoryRouter : BrowserRouter;
 if (IS_LOCAL) window.addEventListener("hos:data-changed", () => queryClient.invalidateQueries());
 if (IS_LOCAL && !IS_EMBED && "serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {}));
 }
 
 createRoot(document.getElementById("root")!).render(

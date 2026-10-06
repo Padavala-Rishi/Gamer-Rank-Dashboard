@@ -1,0 +1,26 @@
+# Netlify settings for the free on-device version of Human OS.
+# Everything runs in the browser; your data is saved on the phone. No server, no database.
+[build]
+  base = "human-os"
+  command = "npm install --include=dev && npm run build:local"
+  publish = "dist-local"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Single-page app: every address opens the app.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# The service worker must always be re-checked so updates reach your phone.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

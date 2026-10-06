@@ -15,7 +15,7 @@ function serviceWorker(): Plugin {
     apply: "build",
     generateBundle(_opts, bundle) {
       if (embed) return;
-      const files = ["./", ...Object.keys(bundle).map((f) => `./${f}`), "./manifest.webmanifest", "./favicon.svg", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
+      const files = ["./", ...Object.keys(bundle).map((f) => `./${f}`), "./manifest.webmanifest", "./favicon.svg", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"].filter((f, i, a) => a.indexOf(f) === i);
       const version = Date.now().toString(36);
       const source = `// Generated at build time. Precaches the app shell so Human OS works offline.
 const CACHE = "human-os-${version}";
@@ -43,7 +43,8 @@ self.addEventListener("fetch", (e) => {
 }
 
 export default defineConfig({
-  base: "./",
+  // Served from the root of its own address (Netlify). The preview embeds in a page, so it stays relative.
+  base: embed ? "./" : "/",
   plugins: [react(), serviceWorker()],
   define: { __LOCAL_MODE__: true, __EMBED_MODE__: embed },
   resolve: {

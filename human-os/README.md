@@ -48,6 +48,15 @@ One Node process serves the API and the built app. Put it behind HTTPS (cookies 
 | `node scripts/e2e.mjs` | Browser smoke test (Playwright): registers, onboards with demo data, visits every page on desktop + mobile, exercises planner / palette / capture / focus flows; fails on any console error, failed API call or mobile horizontal overflow |
 | `npm run build` / `npm start` | Production build / run |
 
+
+## Free phone version (no server, no account)
+
+`npm run build:local` builds a version where the whole app, including the database (SQLite compiled to JavaScript), runs inside the browser and saves to the device. It installs to a phone's home screen and works offline. There is no sign-in, no sync between devices and no AI assistant.
+
+Deploy it free on Netlify: connect the repository (branch `claude/human-os-productivity-app-2heqwy`). The `netlify.toml` at the repository root sets the build command and folder, so no settings need typing. Then open the site in Safari and use **Share → Add to Home Screen**.
+
+Notes: on iPhone, the Home Screen app has its own storage, separate from Safari — create your data inside the Home Screen app. Export a backup now and then (Settings → Data & privacy).
+
 ## Architecture
 
 ```
