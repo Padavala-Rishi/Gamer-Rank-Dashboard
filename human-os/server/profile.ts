@@ -1,7 +1,7 @@
 import type { DB } from "./db";
 import { newId, nowIso } from "./db";
 import { profileSchema, profilePatchSchema, type Profile } from "../shared/schemas";
-import { DEFAULT_LIFE_AREAS, DEFAULT_WIDGETS } from "../shared/constants";
+import { DEFAULT_LIFE_AREAS, DEFAULT_WIDGETS, SIMPLE_HIDDEN_NAV } from "../shared/constants";
 import { isValidTimeZone } from "../shared/dates";
 
 export function defaultProfile(timezone?: string): Profile {
@@ -20,7 +20,7 @@ export function defaultProfile(timezone?: string): Profile {
     default_focus_min: 25,
     pomodoro_break_min: 5,
     dashboard_widgets: [...DEFAULT_WIDGETS],
-    hidden_nav: [],
+    hidden_nav: [...SIMPLE_HIDDEN_NAV],
     notification_prefs: {
       enabled: true,
       kinds: {},

@@ -6,7 +6,7 @@ import { useApi, useDocumentTitle, useMutate, useProfile } from "../lib/hooks";
 import type { Profile } from "../lib/types";
 import { Button, Card, Field, PageHeader, Seg, Skeleton, Tabs, useConfirm } from "../components/ui";
 import { ApiError, get, post, setSession } from "../lib/api";
-import { NOTIFICATION_KINDS } from "../../shared/constants";
+import { ALL_WIDGETS, NOTIFICATION_KINDS, SIMPLE_HIDDEN_NAV, SIMPLE_WIDGETS } from "../../shared/constants";
 import { ALL_NAV } from "../layout/nav";
 import { useToast } from "../components/Toast";
 import { IS_EMBED, IS_LOCAL } from "../lib/mode";
@@ -113,8 +113,22 @@ function ProfileTab({ p }: { p: Profile }) {
 function AppearanceTab({ p }: { p: Profile }) {
   const save = useSave();
   const hidden = new Set(p.hidden_nav);
+  const simple = SIMPLE_HIDDEN_NAV.every((x) => hidden.has(x));
   return (
     <div className="col gap-16">
+      <Card title="How much do you want to see?">
+        <div className="col gap-12">
+          <Seg
+            label="View"
+            value={simple ? "simple" : "full"}
+            onChange={(v) => save(v === "simple" ? { hidden_nav: SIMPLE_HIDDEN_NAV, dashboard_widgets: SIMPLE_WIDGETS } : { hidden_nav: [], dashboard_widgets: ALL_WIDGETS }, v === "simple" ? "Simple view" : "Showing everything")}
+            options={[["simple", "Simple"], ["full", "Everything"]]}
+          />
+          <p className="small muted">
+            Simple shows Today, Tasks, Calendar, Goals, Habits, Focus and Journal. Everything adds projects, learning, career, health, finance, people, notes, reviews and analytics. Your data is the same either way.
+          </p>
+        </div>
+      </Card>
       <Card title="Look & feel">
         <div className="col gap-16">
           <Field label="Theme">

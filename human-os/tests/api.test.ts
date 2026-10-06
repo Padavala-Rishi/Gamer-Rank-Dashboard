@@ -36,6 +36,17 @@ describe("auth", () => {
     expect(profile.body.onboarded).toBe(false);
   });
 
+  it("starts new accounts in the simple view", async () => {
+    const a = await signup("simple@example.com");
+    const p = (await a.get("/api/profile")).body;
+    expect(p.dashboard_widgets).toEqual(["now", "priorities", "habits", "schedule"]);
+    expect(p.hidden_nav).toContain("/finance");
+    expect(p.hidden_nav).not.toContain("/tasks");
+    // One call switches to everything.
+    const full = (await a.patch("/api/profile").send({ hidden_nav: [] })).body;
+    expect(full.hidden_nav).toEqual([]);
+  });
+
   it("rejects duplicate emails and weak passwords", async () => {
     await signup("dup@example.com");
     const dup = await request(app).post("/api/auth/register").send({ email: "DUP@example.com", password: "correct horse battery" });

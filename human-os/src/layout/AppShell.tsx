@@ -149,19 +149,21 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Zap size={16} aria-hidden /> What should I do now?
         </Button>
         <nav className="col" style={{ gap: 12 }}>
-          {NAV.map((g, i) => (
-            <div className="nav-group" key={i}>
-              {g.group && <div className="nav-label">{g.group}</div>}
-              {g.items
-                .filter((it) => !hidden.has(it.to))
-                .map((it) => (
+          {NAV.map((g, i) => {
+            const items = g.items.filter((it) => !hidden.has(it.to));
+            if (!items.length) return null;
+            return (
+              <div className="nav-group" key={i}>
+                {g.group && <div className="nav-label">{g.group}</div>}
+                {items.map((it) => (
                   <NavLink key={it.to} to={it.to} end={it.to === "/"} className="nav-link">
                     <it.icon size={17} aria-hidden />
                     {it.label}
                   </NavLink>
                 ))}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </nav>
         <div className="grow" />
         <div className="tiny muted" style={{ padding: "0 10px" }}>
@@ -227,21 +229,23 @@ export function AppShell({ children }: { children: ReactNode }) {
       </nav>
       <Modal open={more} onClose={() => setMore(false)} title="More">
         <div className="col gap-16">
-          {NAV.slice(1).map((g, i) => (
-            <div key={i}>
-              {g.group && <div className="nav-label" style={{ paddingLeft: 0 }}>{g.group}</div>}
-              <div className="sheet-nav">
-                {g.items
-                  .filter((it) => !hidden.has(it.to))
-                  .map((it) => (
+          {NAV.slice(1).map((g, i) => {
+            const items = g.items.filter((it) => !hidden.has(it.to));
+            if (!items.length) return null;
+            return (
+              <div key={i}>
+                {g.group && <div className="nav-label" style={{ paddingLeft: 0 }}>{g.group}</div>}
+                <div className="sheet-nav">
+                  {items.map((it) => (
                     <NavLink key={it.to} to={it.to}>
                       <it.icon size={20} aria-hidden />
                       {it.label}
                     </NavLink>
                   ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Modal>
     </div>

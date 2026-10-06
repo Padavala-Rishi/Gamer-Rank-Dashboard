@@ -465,7 +465,13 @@ export const DASHBOARD_WIDGETS = [
   ["learning", "Flashcards due"],
 ] as const satisfies readonly Option[];
 export const DASHBOARD_WIDGET_VALUES = values(DASHBOARD_WIDGETS);
-export const DEFAULT_WIDGETS = DASHBOARD_WIDGETS.map((w) => w[0]);
+export const ALL_WIDGETS: (typeof DASHBOARD_WIDGETS)[number][0][] = DASHBOARD_WIDGETS.map((w) => w[0]);
+
+// "Simple view" is the default: a short menu and a calm dashboard. Nothing is removed;
+// everything else is one switch away in Settings → Appearance (and always reachable by search).
+export const SIMPLE_HIDDEN_NAV = ["/projects", "/compass", "/learning", "/career", "/health", "/finance", "/people", "/knowledge", "/reviews", "/analytics", "/assistant"];
+export const SIMPLE_WIDGETS: (typeof DASHBOARD_WIDGETS)[number][0][] = ["now", "priorities", "habits", "schedule"];
+export const DEFAULT_WIDGETS = SIMPLE_WIDGETS;
 
 export const NOTIFICATION_KINDS = [
   ["deadline", "Upcoming & overdue deadlines"],
