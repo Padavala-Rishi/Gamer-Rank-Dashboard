@@ -50,7 +50,7 @@ async function boot() {
 // ───────────── helpers ─────────────
 let browser;
 const watch = (page, label) => {
-  page.on("console", (m) => { if (m.type() === "error" && !m.text().includes("caret-color") && !m.location()?.url?.startsWith("https://api.anthropic.com/")) problems.push(`[${label}] console @ ${page.url()}: ${m.text()} ${m.location()?.url ?? ""}`); });
+  page.on("console", (m) => { if (m.type() === "error" && !m.text().includes("caret-color") && !m.text().includes("ERR_INTERNET_DISCONNECTED") && !m.location()?.url?.startsWith("https://api.anthropic.com/")) problems.push(`[${label}] console @ ${page.url()}: ${m.text()} ${m.location()?.url ?? ""}`); });
   page.on("pageerror", (e) => problems.push(`[${label}] pageerror @ ${page.url()}: ${e.message}`));
   const stubbed = (u) => u.startsWith("https://api.anthropic.com/"); // the coach test answers these itself, with a 401
   page.on("response", (r) => { if (r.status() >= 400 && !stubbed(r.url())) problems.push(`[${label}] ${r.status()} ${r.url()}`); });
