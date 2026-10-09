@@ -318,7 +318,7 @@ export async function run(h) {
     await log(65);
     await toast(page, /New personal record: Bench press/);
     await open("/health?tab=workouts");
-    assert(/Bench press/.test(await text(page)) && /65 kg × 5/.test(await text(page)), "records table");
+    await page.waitForFunction(() => /Bench press/.test(document.body.innerText) && /65 kg × 5/.test(document.body.innerText), null, { timeout: 8000 }).catch(() => { throw new Error("records table"); });
   });
   await test("bodyweight and measurements are logged; the trend is withheld until there is enough data", async () => {
     await open("/health?tab=body");
@@ -584,7 +584,7 @@ export async function run(h) {
     for (const href of hrefs) {
       await page.locator(`aside nav a[href="${href}"]`).click();
       await page.waitForURL((u) => u.pathname === href, { timeout: 10000 });
-      assert((await page.locator("h1").count()) >= 1, `${href} rendered no heading`);
+      await page.locator("h1").first().waitFor({ timeout: 15000 }).catch(() => { throw new Error(`${href} rendered no heading`); });
     }
   });
   await test("keyboard: N opens quick add, focus stays inside, Escape closes it", async () => {
@@ -597,7 +597,7 @@ export async function run(h) {
     await page.locator("dialog[open]").waitFor({ state: "detached" });
   });
   await test("keyboard: the skip link is the first thing reached", async () => {
-    await open("/");
+    await page.hardGoto(BASE + "/"); // a fresh load: client-side navigation keeps the previous focus
     await page.keyboard.press("Tab");
     assert(await page.evaluate(() => document.activeElement?.textContent?.includes("Skip to content")), "skip link");
   });

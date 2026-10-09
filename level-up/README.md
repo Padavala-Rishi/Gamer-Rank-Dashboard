@@ -128,7 +128,7 @@ currencies are never mixed or converted.
 
 ```bash
 npm run typecheck
-npm run test:unit      # 95 tests: curve, streaks, recurrence, planner, timer, analytics, coach privacy, migration bundle…
+npm run test:unit      # 92 tests: curve, streaks, recurrence, planner, timer, analytics, coach privacy, migration bundle…
 npm run test:db        # 68 tests on the shipped engine (PGlite): RLS, XP engine, parity with TS, the query shim, backup/restore, coach
 npm run test:e2e       # builds the static site and drives Chromium through it: see below
 ```

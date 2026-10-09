@@ -1,6 +1,7 @@
 import { LOCAL_USER_ID } from "./bootstrap";
 import { rawDatabase } from "./client";
 import { notifyChange } from "./events";
+import { flush } from "./open";
 
 /** Every table that belongs to the user, in the order they are written back. Reference data (categories, achievement_defs) is not backed up. */
 export const BACKUP_TABLES = [
@@ -60,6 +61,7 @@ export async function importBackup(raw: unknown): Promise<{ rows: number }> {
     await tx.query("insert into public.profiles (id) values ($1) on conflict do nothing", [LOCAL_USER_ID]);
     await tx.query("insert into public.user_settings (user_id) values ($1) on conflict do nothing", [LOCAL_USER_ID]);
   });
+  await flush(pg);
   notifyChange();
   return { rows };
 }
@@ -73,5 +75,6 @@ export async function eraseDevice(): Promise<void> {
     await tx.query("insert into public.profiles (id) values ($1) on conflict do nothing", [LOCAL_USER_ID]);
     await tx.query("insert into public.user_settings (user_id) values ($1) on conflict do nothing", [LOCAL_USER_ID]);
   });
+  await flush(pg);
   notifyChange();
 }

@@ -50,10 +50,11 @@ async function boot() {
 // ───────────── helpers ─────────────
 let browser;
 const watch = (page, label) => {
-  page.on("console", (m) => { if (m.type() === "error" && !m.text().includes("caret-color")) problems.push(`[${label}] console @ ${page.url()}: ${m.text()} ${m.location()?.url ?? ""}`); });
+  page.on("console", (m) => { if (m.type() === "error" && !m.text().includes("caret-color") && !m.location()?.url?.startsWith("https://api.anthropic.com/")) problems.push(`[${label}] console @ ${page.url()}: ${m.text()} ${m.location()?.url ?? ""}`); });
   page.on("pageerror", (e) => problems.push(`[${label}] pageerror @ ${page.url()}: ${e.message}`));
-  page.on("response", (r) => { if (r.status() >= 400 && !r.url().endsWith("/api/export")) problems.push(`[${label}] ${r.status()} ${r.url()}`); });
-  page.on("requestfailed", (r) => { if (r.failure()?.errorText !== "net::ERR_ABORTED") problems.push(`[${label}] request failed ${r.url()} ${r.failure()?.errorText}`); });
+  const stubbed = (u) => u.startsWith("https://api.anthropic.com/"); // the coach test answers these itself, with a 401
+  page.on("response", (r) => { if (r.status() >= 400 && !stubbed(r.url())) problems.push(`[${label}] ${r.status()} ${r.url()}`); });
+  page.on("requestfailed", (r) => { if (!["net::ERR_ABORTED", "net::ERR_INTERNET_DISCONNECTED"].includes(r.failure()?.errorText)) problems.push(`[${label}] request failed ${r.url()} ${r.failure()?.errorText}`); }); // OFFLINE is set on purpose in one test
   softNav(page);
 };
 /**

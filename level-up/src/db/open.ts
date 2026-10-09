@@ -25,16 +25,28 @@ export async function prepare(db: PGlite): Promise<void> {
     });
   }
   await db.query("insert into auth.users (id, email) values ($1, 'local@device') on conflict do nothing", [LOCAL_USER_ID]);
+  await flush(db);
+}
+
+/**
+ * Write the database to IndexedDB now. PGlite defers this inside a transaction, so without it a change made a moment
+ * before the app is closed or reloaded could be lost.
+ */
+export async function flush(db: PGlite): Promise<void> {
+  await db.syncToFs();
 }
 
 const CLAIMS = JSON.stringify({ sub: LOCAL_USER_ID, role: "authenticated" });
 
 /** Runs each statement the way PostgREST would: its own transaction, as the `authenticated` role, with the user's claims set. */
 export function userExecutor(db: PGlite): Executor {
-  return (sql, params) =>
-    db.transaction(async (tx: Transaction) => {
+  return async (sql, params) => {
+    const out = await db.transaction(async (tx: Transaction) => {
       await tx.exec(`set local role authenticated; select set_config('request.jwt.claims', '${CLAIMS}', true);`);
       const r = await tx.query<Record<string, unknown>>(sql, params as unknown[]);
       return { rows: r.rows };
     });
+    await flush(db);
+    return out;
+  };
 }
