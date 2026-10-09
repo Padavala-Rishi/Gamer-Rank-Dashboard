@@ -8,7 +8,7 @@ import { XpBar } from "@/components/xp-bar";
 import { CATEGORIES, CATEGORY_KEYS, DIFFICULTY_LABEL } from "@/lib/constants";
 import { addDays, diffDays, formatDay, formatTimestamp, relativeDay } from "@/lib/dates";
 import { sumXpByCategory, xpSeries } from "@/lib/game/analytics";
-import { availableMinutes, bucketTasks, dayLoad, nextBestActions } from "@/lib/game/planner";
+import { availableMinutes, bucketTasks, dayLoad, nextBestActions, nextOccurrences } from "@/lib/game/planner";
 import { consistency, weeklyStreak } from "@/lib/game/streaks";
 import { buildCharacter } from "@/lib/game/xp";
 import { getContext, getProgress } from "@/lib/server/context";
@@ -142,7 +142,7 @@ export default async function Dashboard() {
 
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="lg:col-span-3">
-          <Section title="Today's quests" actions={<Link className="text-sm text-muted hover:text-ink" href="/quests">All quests →</Link>}>
+          <Section title="Today's quests" actions={<Link className="btn btn-ghost btn-sm" href="/quests">All quests →</Link>}>
             {b.overdue.length > 0 && <p className="mb-2 text-xs text-warn">{b.overdue.length} carried over from earlier. Nothing is lost.</p>}
             {b.today.length + b.overdue.length === 0 ? (
               <EmptyState icon="circle-check" title={doneToday.length ? "All done for today" : "Nothing planned today"} action={<Link className="btn btn-sm" href="/quests?view=backlog">Browse backlog</Link>} />
@@ -154,7 +154,7 @@ export default async function Dashboard() {
           {b.upcoming.length > 0 && (
             <Section title="Coming up">
               <ul className="space-y-1.5">
-                {b.upcoming.slice(0, 4).map((t) => <li key={t.id} className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm"><span className="min-w-0 truncate">{t.title}</span><span className="shrink-0 text-xs text-muted">{relativeDay(t.scheduled_date!, today)}</span></li>)}
+                {nextOccurrences(b.upcoming).slice(0, 4).map((t) => <li key={t.id} className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm"><span className="min-w-0 truncate">{t.title}</span><span className="shrink-0 text-xs text-muted">{relativeDay(t.scheduled_date!, today)}</span></li>)}
               </ul>
             </Section>
           )}

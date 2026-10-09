@@ -3,13 +3,14 @@ import { Notice, PageHeader, Section } from "@/components/ui";
 import { COACH_DISCLOSURE } from "@/lib/coach/context";
 import { COACH_MODES, type CoachResult } from "@/lib/coach/run";
 import { aiConfigured } from "@/lib/env";
+import { formatTimestamp } from "@/lib/dates";
 import { getContext } from "@/lib/server/context";
 import { CoachPanel, ConsentSwitch, Preview } from "./client";
 
 export const metadata = { title: "AI Coach" };
 
 export default async function CoachPage() {
-  const { supabase, today, settings } = await getContext();
+  const { supabase, today, settings, profile } = await getContext();
   const { data: runs } = await supabase.from("coach_runs").select("id,mode,response,created_at").order("created_at", { ascending: false }).limit(8);
   const configured = aiConfigured();
   const modes = Object.entries(COACH_MODES).map(([key, m]) => ({ key, label: m.label, blurb: m.blurb }));
@@ -39,7 +40,7 @@ export default async function CoachPage() {
             {(runs ?? []).map((r) => {
               const res = r.response as CoachResult | null;
               return (
-                <li key={r.id}><details className="card-inset px-3.5 py-2.5"><summary className="cursor-pointer text-sm"><span className="font-medium">{res?.headline ?? "Answer"}</span> <span className="text-xs text-muted">· {COACH_MODES[r.mode as keyof typeof COACH_MODES]?.label ?? r.mode} · {new Date(r.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: undefined })}</span></summary>
+                <li key={r.id}><details className="card-inset px-3.5 py-2.5"><summary className="cursor-pointer text-sm"><span className="font-medium">{res?.headline ?? "Answer"}</span> <span className="text-xs text-muted">· {COACH_MODES[r.mode as keyof typeof COACH_MODES]?.label ?? r.mode} · {formatTimestamp(r.created_at, profile.timezone)}</span></summary>
                   {res && <div className="mt-2 space-y-2 text-sm text-muted"><p>{res.summary}</p>{res.actions?.length > 0 && <ul className="list-disc pl-4">{res.actions.map((a, i) => <li key={i}>{a.title}</li>)}</ul>}</div>}
                 </details></li>
               );

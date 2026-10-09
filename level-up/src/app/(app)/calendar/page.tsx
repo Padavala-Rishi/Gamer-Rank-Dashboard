@@ -4,7 +4,7 @@ import { CapacityMeter } from "@/components/capacity";
 import { Icon } from "@/components/icon";
 import { QuestItem } from "@/components/quest-item";
 import { EmptyState, PageHeader, Section } from "@/components/ui";
-import { addDays, addMonths, daysInMonth, formatDay, formatMinutes, isYMD, isoWeekday, startOfMonth, weekStart, WEEKDAY_KEYS, type YMD } from "@/lib/dates";
+import { addDays, addMonths, daysInMonth, formatDay, formatMinutes, formatMonth, isYMD, isoWeekday, startOfMonth, weekStart, WEEKDAY_KEYS, type YMD } from "@/lib/dates";
 import { availableMinutes, dayLoad } from "@/lib/game/planner";
 import { getContext } from "@/lib/server/context";
 import { ensureRecurring } from "@/lib/server/recurring";
@@ -42,7 +42,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) cells.push(d);
   const labels = startsOn === 1 ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const prev = addMonths(monthStart, -1).slice(0, 7), next = addMonths(monthStart, 1).slice(0, 7);
-  const monthName = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${monthStart}T00:00:00Z`));
+  const monthName = formatMonth(monthStart);
 
   const dayTasks = tasks.filter((t) => t.scheduled_date === selected);
   const load = dayLoad(dayTasks, selected);

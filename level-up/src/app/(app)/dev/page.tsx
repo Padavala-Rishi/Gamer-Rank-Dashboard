@@ -11,6 +11,7 @@ import { LEAD_STATUSES, LEAD_STATUS_LABEL, PROJECT_STAGES, PROJECT_STAGE_LABEL, 
 import { addDays, eachDay, formatDay, formatMinutes, startOfMonth, weekStart, type YMD } from "@/lib/dates";
 import { funnel, incomeSummary, sumXpByCategory } from "@/lib/game/analytics";
 import { followUpsDue, trackProgress } from "@/lib/game/domain";
+import { visibleNow } from "@/lib/game/planner";
 import { buildCharacter } from "@/lib/game/xp";
 import { invoiceFields, leadFields, outreachFields, paymentFields, projectFields, roadmapFields } from "@/lib/forms";
 import { getContext, getProgress } from "@/lib/server/context";
@@ -36,7 +37,7 @@ export default async function Dev({ searchParams }: { searchParams: Promise<{ ta
     supabase.from("outreach_log").select("*").order("occurred_on", { ascending: false }).order("created_at", { ascending: false }).limit(300).then((r) => (r.data ?? []) as OutreachEntry[]),
     supabase.from("income_records").select("*").order("occurred_on", { ascending: false }).then((r) => (r.data ?? []) as IncomeRecord[]),
     supabase.from("focus_sessions").select("*").eq("category", "dev").gte("session_date", addDays(today, -90)).order("session_date", { ascending: false }).order("started_at", { ascending: false }).then((r) => (r.data ?? []) as FocusSession[]),
-    supabase.from("tasks").select("*").eq("status", "open").eq("category", "dev").order("scheduled_date", { nullsFirst: false }).limit(40).then((r) => (r.data ?? []) as Task[]),
+    supabase.from("tasks").select("*").eq("status", "open").eq("category", "dev").order("scheduled_date", { nullsFirst: false }).limit(80).then((r) => visibleNow((r.data ?? []) as Task[], today)),
     supabase.from("achievement_defs").select("*").eq("category", "dev").order("sort").then((r) => (r.data ?? []) as AchievementDef[]),
     supabase.from("user_achievements").select("key,unlocked_at"),
   ]);
@@ -117,7 +118,7 @@ export default async function Dev({ searchParams }: { searchParams: Promise<{ ta
                         {p.features_total > 0 && <div className="mt-3"><div className="mb-1 flex items-center justify-between text-xs text-muted"><span>Features</span><FeatureBump id={p.id} done={p.features_done} total={p.features_total} name={p.name} /></div><ProgressBar value={p.features_done / p.features_total} color="var(--c-dev)" small label={`${p.name} features`} /></div>}
                         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                           <StageSelect id={p.id} stage={p.stage} name={p.name} />
-                          <span className="flex gap-3 text-xs">{p.repo_url && <a className="text-accent hover:underline" href={p.repo_url} target="_blank" rel="noopener noreferrer">Repo ↗</a>}{p.live_url && <a className="text-accent hover:underline" href={p.live_url} target="_blank" rel="noopener noreferrer">Live ↗</a>}</span>
+                          <span className="flex gap-3 text-xs">{p.repo_url && <a className="inline-flex min-h-8 items-center px-1 text-accent hover:underline" href={p.repo_url} target="_blank" rel="noopener noreferrer">Repo ↗</a>}{p.live_url && <a className="inline-flex min-h-8 items-center px-1 text-accent hover:underline" href={p.live_url} target="_blank" rel="noopener noreferrer">Live ↗</a>}</span>
                         </div>
                       </li>
                     ))}
@@ -274,7 +275,7 @@ export default async function Dev({ searchParams }: { searchParams: Promise<{ ta
         </ChartFrame>
       </div>
       <Section title="Portfolio" className="mt-6" hint="Shipped projects with their links.">
-        {shipped.length === 0 ? <p className="text-sm text-muted">Deploy a project and it shows up here.</p> : <ul className="space-y-1.5">{shipped.map((p) => <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line px-3 py-2.5 text-sm"><b>{p.name}</b><span className="flex gap-3 text-xs">{p.repo_url && <a className="text-accent hover:underline" href={p.repo_url} target="_blank" rel="noopener noreferrer">Repo ↗</a>}{p.live_url && <a className="text-accent hover:underline" href={p.live_url} target="_blank" rel="noopener noreferrer">Live ↗</a>}</span></li>)}</ul>}
+        {shipped.length === 0 ? <p className="text-sm text-muted">Deploy a project and it shows up here.</p> : <ul className="space-y-1.5">{shipped.map((p) => <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line px-3 py-2.5 text-sm"><b>{p.name}</b><span className="flex gap-3 text-xs">{p.repo_url && <a className="inline-flex min-h-8 items-center px-1 text-accent hover:underline" href={p.repo_url} target="_blank" rel="noopener noreferrer">Repo ↗</a>}{p.live_url && <a className="inline-flex min-h-8 items-center px-1 text-accent hover:underline" href={p.live_url} target="_blank" rel="noopener noreferrer">Live ↗</a>}</span></li>)}</ul>}
       </Section>
       <Section title="Career achievements"><AchievementList defs={defs} unlocked={unlocked} metrics={progress.metrics} compact /></Section>
     </>

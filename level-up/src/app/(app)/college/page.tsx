@@ -9,6 +9,7 @@ import { ResourceButton } from "@/components/resource-form";
 import { EmptyState, Notice, ProgressBar, Section, Stat } from "@/components/ui";
 import { addDays, diffDays, eachDay, formatDay, formatMinutes, weekStart } from "@/lib/dates";
 import { sumXpByCategory } from "@/lib/game/analytics";
+import { visibleNow } from "@/lib/game/planner";
 import { revisionsDue, syllabusProgress, type SyllabusNode } from "@/lib/game/domain";
 import { buildCharacter } from "@/lib/game/xp";
 import { examFields, subjectFields, syllabusFields } from "@/lib/forms";
@@ -33,7 +34,7 @@ export default async function College({ searchParams }: { searchParams: Promise<
     supabase.from("syllabus_nodes").select("*").order("sort_order").then((r) => (r.data ?? []) as SyllabusNodeRow[]),
     supabase.from("exams").select("*").order("exam_date").then((r) => (r.data ?? []) as Exam[]),
     supabase.from("focus_sessions").select("*").eq("category", "college").gte("session_date", addDays(today, -60)).order("session_date", { ascending: false }).order("started_at", { ascending: false }).then((r) => (r.data ?? []) as FocusSession[]),
-    supabase.from("tasks").select("*").eq("status", "open").eq("category", "college").order("scheduled_date", { nullsFirst: false }).limit(40).then((r) => (r.data ?? []) as Task[]),
+    supabase.from("tasks").select("*").eq("status", "open").eq("category", "college").order("scheduled_date", { nullsFirst: false }).limit(80).then((r) => visibleNow((r.data ?? []) as Task[], today)),
     supabase.from("achievement_defs").select("*").eq("category", "college").order("sort").then((r) => (r.data ?? []) as AchievementDef[]),
     supabase.from("user_achievements").select("key,unlocked_at"),
   ]);

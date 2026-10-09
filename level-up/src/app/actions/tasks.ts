@@ -42,12 +42,14 @@ export async function createTask(input: unknown): Promise<ActionResult<CreateDat
       const dates = occurrencesBetween(rec, today < start ? start : today, horizon);
       const existing = await loadDay(supabase, today, horizon);
       const extra: PlannerTask[] = [];
+      let crowded = 0;
       for (const d of dates) {
         const c = checkSchedule({ tasks: [...existing, ...extra], date: d, addMinutes: fields.est_minutes ?? null, settings });
-        if (c.verdict === "blocked") throw Object.assign(new Error(`${d} is already full. ${c.message}`), { code: "LV006", meta: { suggestedDate: c.suggestedDate } });
-        if (c.verdict === "full" && !warning) warning = c.message;
+        if (c.verdict !== "ok") crowded++;
         extra.push({ id: `new-${d}`, title: fields.title, category: fields.category, difficulty: fields.difficulty, priority: fields.priority, est_minutes: fields.est_minutes ?? null, scheduled_date: d, status: "open" });
       }
+      // A habit is a routine you chose, so it isn't refused when a day is busy (that rule is for one-off quests), but you're told.
+      if (crowded) warning = `${crowded} of the next ${dates.length} days ${crowded === 1 ? "is" : "are"} already busy or full. Consider moving something else.`;
       const tpl = check(await supabase.from("tasks").insert({ ...fields, scheduled_date: null, status: "template", recurrence: rec, verify: fields.verify ?? null }).select("*").single()) as Task;
       await ensureRecurring(supabase, today);
       refresh();

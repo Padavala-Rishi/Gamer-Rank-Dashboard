@@ -1,5 +1,6 @@
 import { AchievementList } from "@/components/achievement-list";
-import { ChartFrame, Lines, SimpleBars, type Series } from "@/components/charts";
+import { ChartFrame, Lines, SimpleBars } from "@/components/charts";
+import { SERIES_COLORS, type Series } from "@/lib/chart-config";
 import { DomainHeader, SubTabs } from "@/components/domain-header";
 import { Icon } from "@/components/icon";
 import { QuestItem } from "@/components/quest-item";
@@ -8,6 +9,7 @@ import { EmptyState, Notice, ProgressBar, Section, Stat } from "@/components/ui"
 import { SKILL_LABEL, SKILLS, WEEKDAY_LABELS, type Skill } from "@/lib/constants";
 import { addDays, eachDay, formatDay, formatMinutes, isoWeekday, weekStart } from "@/lib/dates";
 import { sumXpByCategory } from "@/lib/game/analytics";
+import { visibleNow } from "@/lib/game/planner";
 import { summariseMetric } from "@/lib/game/domain";
 import { buildCharacter } from "@/lib/game/xp";
 import { DRILL_FIELDS, METRIC_FIELDS, planFields } from "@/lib/forms";
@@ -19,7 +21,6 @@ import { DeleteButton, SessionLoggerButton, ShotLoggerButton } from "./client";
 
 export const metadata = { title: "Basketball" };
 const TABS = [["today", "Today"], ["log", "Training log"], ["drills", "Drills & metrics"], ["plans", "Plans"], ["progress", "Progress"]] as const;
-const SERIES_COLORS = ["var(--c-college)", "var(--c-basketball)", "var(--c-dev)", "var(--c-health)"];
 
 export default async function Basketball({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const ctx = await getContext();
@@ -36,7 +37,7 @@ export default async function Basketball({ searchParams }: { searchParams: Promi
     supabase.from("bball_metrics").select("*").order("created_at").then((r) => (r.data ?? []) as BballMetric[]),
     supabase.from("performance_logs").select("*").gte("logged_on", from90).order("logged_on").then((r) => (r.data ?? []) as PerformanceLog[]),
     supabase.from("practice_sessions").select("*").gte("session_date", addDays(today, -120)).order("session_date", { ascending: false }).order("created_at", { ascending: false }).then((r) => (r.data ?? []) as PracticeSession[]),
-    supabase.from("tasks").select("*").eq("status", "open").eq("category", "basketball").order("scheduled_date", { nullsFirst: false }).limit(40).then((r) => (r.data ?? []) as Task[]),
+    supabase.from("tasks").select("*").eq("status", "open").eq("category", "basketball").order("scheduled_date", { nullsFirst: false }).limit(80).then((r) => visibleNow((r.data ?? []) as Task[], today)),
     supabase.from("achievement_defs").select("*").eq("category", "basketball").order("sort").then((r) => (r.data ?? []) as AchievementDef[]),
     supabase.from("user_achievements").select("key,unlocked_at"),
   ]);

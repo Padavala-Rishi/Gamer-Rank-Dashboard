@@ -1,14 +1,13 @@
 "use client";
 import type { ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { CATEGORIES, CHART_ORDER, type CategoryKey } from "@/lib/constants";
+import type { Series } from "@/lib/chart-config";
 import { formatDay } from "@/lib/dates";
 
 // Charts follow one spec: 2px lines, bars ≤ 24px with a 4px rounded data end, hairline solid grid, text in text tokens
 // (never the series colour), a legend whenever there are ≥ 2 series, a hover tooltip, and a table view for every chart.
 
-export type Series = { key: string; label: string; color: string };
-export const domainSeries = (keys: CategoryKey[] = CHART_ORDER): Series[] => keys.map((k) => ({ key: k, label: CATEGORIES[k].name, color: `var(--c-${k})` }));
+export type { Series };
 
 const AXIS = { fill: "var(--muted)", fontSize: 11 } as const;
 
@@ -16,7 +15,7 @@ export function ChartFrame({ title, subtitle, legend, table, children, empty }: 
   title: string; subtitle?: ReactNode; legend?: Series[]; table?: { columns: string[]; rows: (string | number)[][] }; children: ReactNode; empty?: string | null;
 }) {
   return (
-    <figure className="card p-4">
+    <figure className="card min-w-0 overflow-hidden p-4">
       <figcaption className="mb-3">
         <div className="text-sm font-semibold">{title}</div>
         {subtitle && <div className="text-xs text-muted">{subtitle}</div>}
@@ -73,7 +72,7 @@ const tickDay = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? formatDay(v, { d
 export function StackedBars({ data, series, xKey = "day", height = 220, unit = "", rounded = true }: { data: Record<string, number | string>[]; series: Series[]; xKey?: string; height?: number; unit?: string; rounded?: boolean }) {
   const Tip = makeTooltip(series, dayLabel, unit);
   return (
-    <div style={{ height }} role="img" aria-label="Stacked bar chart; the table view below has the same numbers">
+    <div className="min-w-0 max-w-full overflow-hidden" style={{ height }} role="img" aria-label="Stacked bar chart; the table view below has the same numbers">
       <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 640, height }}>
         <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -12 }} barCategoryGap="22%">
           <CartesianGrid stroke="var(--line)" vertical={false} />
@@ -94,7 +93,7 @@ export function SimpleBars({ data, dataKey, color = "var(--accent)", xKey = "day
   const series = [{ key: dataKey, label, color }];
   const Tip = makeTooltip(series, dayLabel, unit);
   return (
-    <div style={{ height }} role="img" aria-label={`${label} bar chart; the table view below has the same numbers`}>
+    <div className="min-w-0 max-w-full overflow-hidden" style={{ height }} role="img" aria-label={`${label} bar chart; the table view below has the same numbers`}>
       <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 640, height }}>
         <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -12 }} barCategoryGap="22%">
           <CartesianGrid stroke="var(--line)" vertical={false} />
@@ -113,7 +112,7 @@ export function SimpleBars({ data, dataKey, color = "var(--accent)", xKey = "day
 export function Lines({ data, series, xKey = "day", height = 220, unit = "", yDomain, target, label }: { data: Record<string, number | string | null>[]; series: Series[]; xKey?: string; height?: number; unit?: string; yDomain?: [number | "auto", number | "auto"]; target?: number; label: string }) {
   const Tip = makeTooltip(series, dayLabel, unit);
   return (
-    <div style={{ height }} role="img" aria-label={`${label} line chart; the table view below has the same numbers`}>
+    <div className="min-w-0 max-w-full overflow-hidden" style={{ height }} role="img" aria-label={`${label} line chart; the table view below has the same numbers`}>
       <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 640, height }}>
         <LineChart data={data} margin={{ top: 8, right: 10, bottom: 0, left: -12 }}>
           <CartesianGrid stroke="var(--line)" vertical={false} />

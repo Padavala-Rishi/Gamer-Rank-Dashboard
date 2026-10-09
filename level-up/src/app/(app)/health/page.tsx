@@ -9,6 +9,7 @@ import { EmptyState, Notice, ProgressBar, Section, Stat } from "@/components/ui"
 import { WEEKDAY_LABELS } from "@/lib/constants";
 import { addDays, eachDay, formatDay, formatMinutes, isoWeekday, weekStart } from "@/lib/dates";
 import { sumXpByCategory } from "@/lib/game/analytics";
+import { visibleNow } from "@/lib/game/planner";
 import { est1RM, personalRecords, trainingLoadWarning, weightTrend } from "@/lib/game/domain";
 import { buildCharacter } from "@/lib/game/xp";
 import { bodyFields, mealFields, routineFields } from "@/lib/forms";
@@ -36,7 +37,7 @@ export default async function Health({ searchParams }: { searchParams: Promise<{
     supabase.from("workouts").select("*").gte("workout_date", from90).order("workout_date", { ascending: false }).order("created_at", { ascending: false }).then((r) => (r.data ?? []) as Workout[]),
     supabase.from("workout_sets").select("*").order("created_at").limit(3000).then((r) => (r.data ?? []) as WorkoutSet[]),
     supabase.from("body_metrics").select("*").order("logged_on").then((r) => (r.data ?? []) as BodyMetric[]),
-    supabase.from("tasks").select("*").eq("status", "open").eq("category", "health").order("scheduled_date", { nullsFirst: false }).limit(40).then((r) => (r.data ?? []) as Task[]),
+    supabase.from("tasks").select("*").eq("status", "open").eq("category", "health").order("scheduled_date", { nullsFirst: false }).limit(80).then((r) => visibleNow((r.data ?? []) as Task[], today)),
     supabase.from("tasks").select("*").eq("status", "template").eq("category", "health").then((r) => (r.data ?? []) as Task[]),
     supabase.from("achievement_defs").select("*").eq("category", "health").order("sort").then((r) => (r.data ?? []) as AchievementDef[]),
     supabase.from("user_achievements").select("key,unlocked_at"),
@@ -77,7 +78,7 @@ export default async function Health({ searchParams }: { searchParams: Promise<{
           <Tracker icon="timer" title="Mobility & stretching" value={`${dayRow?.mobility_min ?? 0} min`} target={`${t.mobility_min} min`} pct={t.mobility_min ? (dayRow?.mobility_min ?? 0) / t.mobility_min : 0}><MobilityControls day={today} minutes={dayRow?.mobility_min ?? 0} /></Tracker>
           <div className="card p-4">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><Icon name="bed" size={16} className="text-health" />Sleep <span className="ml-auto text-xs font-normal text-muted">healthy range {t.sleep_min_h}–{t.sleep_max_h} h</span></div>
-            <SleepForm key={`${dayRow?.sleep_hours}-${dayRow?.sleep_quality}`} day={today} hours={dayRow?.sleep_hours != null ? Number(dayRow.sleep_hours) : null} quality={dayRow?.sleep_quality ?? null} min={Number(t.sleep_min_h)} max={Number(t.sleep_max_h)} />
+            <SleepForm day={today} hours={dayRow?.sleep_hours != null ? Number(dayRow.sleep_hours) : null} quality={dayRow?.sleep_quality ?? null} min={Number(t.sleep_min_h)} max={Number(t.sleep_max_h)} />
           </div>
         </div>
         {todayRoutine && <Notice className="mt-5">Planned today: <b>{todayRoutine.name}</b> ({routineItems(todayRoutine).map((e) => e.name).join(", ") || "no exercises yet"}).</Notice>}

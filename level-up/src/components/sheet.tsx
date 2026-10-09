@@ -8,7 +8,11 @@ export function Sheet({ open, onClose, title, children, footer, wide }: { open: 
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
-    if (open && !d.open) d.showModal();
+    if (open && !d.open) {
+      d.showModal();
+      // the browser focuses the first focusable thing (the close button); forms should start in their first field
+      requestAnimationFrame(() => d.querySelector<HTMLElement>("input:not([type=hidden]):not([type=range]):not([type=checkbox]), textarea, select")?.focus());
+    }
     if (!open && d.open) d.close();
   }, [open]);
   return (

@@ -247,3 +247,19 @@ export function bucketTasks<T extends PlannerTask>(tasks: T[], today: YMD): Ques
   out.upcoming.sort((a, b) => (a.scheduled_date! < b.scheduled_date! ? -1 : 1));
   return out;
 }
+
+/** Open quests worth showing now: future copies of repeating quests are hidden until their day (no "Evening stretch" ×4). */
+export function visibleNow<T extends PlannerTask>(tasks: T[], today: YMD): T[] {
+  return tasks.filter((t) => !(t.template_id && t.scheduled_date && t.scheduled_date > today));
+}
+
+/** For "coming up" lists: one entry per repeating quest (its next occurrence), every one-off quest. */
+export function nextOccurrences<T extends PlannerTask>(tasks: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const t of tasks.slice().sort((a, b) => ((a.scheduled_date ?? "9999") < (b.scheduled_date ?? "9999") ? -1 : 1))) {
+    if (t.template_id) { if (seen.has(t.template_id)) continue; seen.add(t.template_id); }
+    out.push(t);
+  }
+  return out;
+}

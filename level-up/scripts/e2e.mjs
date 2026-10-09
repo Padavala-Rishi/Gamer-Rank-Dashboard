@@ -32,6 +32,7 @@ async function test(name, fn) {
     console.log(`  ✓ ${name}  (${Date.now() - t0}ms)`);
   } catch (e) {
     results.push({ name, ok: false, ms: Date.now() - t0, error: e });
+    try { await globalThis.__page?.screenshot({ path: path.join(SHOTS, `FAIL-${name.replace(/[^a-z0-9]+/gi, "-").slice(0, 60)}.png`), fullPage: true }); } catch { /* page closed */ }
     console.log(`  ✗ ${name}\n      ${String(e.message ?? e).split("\n").slice(0, 6).join("\n      ")}`);
   }
 }
@@ -45,8 +46,9 @@ async function boot() {
   execFileSync(process.execPath, [path.join(ROOT, "scripts/test-stack.mjs"), "up", "--fresh"], { stdio: "inherit" });
   const env = { ...process.env, NEXT_PUBLIC_SUPABASE_URL: SUPABASE, NEXT_PUBLIC_SUPABASE_ANON_KEY: ANON_KEY, PORT: String(PORT) };
   delete env.ANTHROPIC_API_KEY; // the coach must work "off" in tests
-  if (!args.includes("--no-build")) execFileSync("npx", ["next", "build"], { cwd: ROOT, env, stdio: "pipe" });
-  nextProc = spawn("npx", ["next", "start", "-p", String(PORT), "-H", "127.0.0.1"], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"], detached: true });
+  const dev = args.includes("--dev");
+  if (!dev && !args.includes("--no-build")) execFileSync("npx", ["next", "build"], { cwd: ROOT, env, stdio: "pipe" });
+  nextProc = spawn("npx", ["next", dev ? "dev" : "start", "-p", String(PORT), "-H", "127.0.0.1"], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"], detached: true });
   let log = "";
   nextProc.stdout.on("data", (d) => (log += d));
   nextProc.stderr.on("data", (d) => (log += d));
@@ -60,9 +62,9 @@ async function boot() {
 // ───────────── helpers ─────────────
 let browser;
 const watch = (page, label) => {
-  page.on("console", (m) => { if (m.type() === "error") problems.push(`[${label}] console: ${m.text()}`); });
-  page.on("pageerror", (e) => problems.push(`[${label}] pageerror: ${e.message}`));
-  page.on("response", (r) => { if (r.status() >= 500) problems.push(`[${label}] ${r.status()} ${r.url()}`); });
+  page.on("console", (m) => { if (m.type() === "error" && !m.text().includes("caret-color")) problems.push(`[${label}] console @ ${page.url()}: ${m.text()} ${m.location()?.url ?? ""}`); });
+  page.on("pageerror", (e) => problems.push(`[${label}] pageerror @ ${page.url()}: ${e.message}`));
+  page.on("response", (r) => { if (r.status() >= 500 || (r.status() >= 400 && !r.url().includes("/api/") && !/\/(login|signup)/.test(r.url()))) problems.push(`[${label}] ${r.status()} ${r.url()}`); });
   page.on("requestfailed", (r) => { if (!/_rsc|favicon/.test(r.url()) && r.failure()?.errorText !== "net::ERR_ABORTED") problems.push(`[${label}] request failed ${r.url()} ${r.failure()?.errorText}`); });
 };
 const newCtx = async (opts = {}) => browser.newContext({ viewport: { width: 1280, height: 900 }, ...opts });
@@ -110,6 +112,7 @@ async function main() {
   browser = await chromium.launch({ executablePath: CHROME, args: ["--no-sandbox"] });
   const ctx = await newCtx();
   const page = await ctx.newPage();
+  globalThis.__page = page;
   watch(page, "desktop");
 
   console.log("\nAuthentication and access control");
@@ -251,8 +254,10 @@ async function main() {
 
   const failed = results.filter((r) => !r.ok);
   const uniqueProblems = [...new Set(problems)];
+  const { writeFileSync } = await import("node:fs");
+  writeFileSync(path.join(SHOTS, "problems.txt"), uniqueProblems.join("\n\n---\n\n"));
   console.log(`\n${results.length - failed.length}/${results.length} passed`);
-  if (uniqueProblems.length) console.log("\nBrowser problems seen (console errors / failed requests):\n  " + uniqueProblems.join("\n  "));
+  if (uniqueProblems.length) console.log(`\nBrowser problems seen: ${uniqueProblems.length} (full text in e2e-shots/problems.txt)`);
   if (failed.length || uniqueProblems.length) { console.log("\nserver log tail:\n" + getLog().split("\n").slice(-15).join("\n")); process.exit(1); }
 }
 

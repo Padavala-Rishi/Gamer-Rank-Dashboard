@@ -43,7 +43,7 @@ export function SleepForm({ day, hours, quality, min, max }: { day: string; hour
     <form className="space-y-3" noValidate onSubmit={(e) => { e.preventDefault(); setErr(null); start(async () => { const r = await saveHealthDay({ day, sleep_hours: h, sleep_quality: q || null }); if (!r.ok) setErr(r.error); else toast("Sleep saved", "good"); }); }}>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Hours slept" htmlFor="sl-h"><input id="sl-h" className="input" type="number" min={0} max={24} step={0.25} inputMode="decimal" value={h} onChange={(e) => setH(e.target.value)} placeholder="e.g. 7.5" /></Field>
-        <Field label="Quality" htmlFor="sl-q"><div className="flex gap-1" role="radiogroup" aria-label="Sleep quality">{[1, 2, 3, 4, 5].map((v) => <button key={v} type="button" role="radio" aria-checked={q === v} className="chip !px-2.5" data-active={q === v} onClick={() => setQ(q === v ? 0 : v)}>{v}</button>)}</div></Field>
+        <Field label="Quality" htmlFor="sl-q"><div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Sleep quality">{[1, 2, 3, 4, 5].map((v) => <button key={v} type="button" role="radio" aria-checked={q === v} className="chip !px-2.5" data-active={q === v} onClick={() => setQ(q === v ? 0 : v)}>{v}</button>)}</div></Field>
       </div>
       {note && <p className={`text-xs ${n != null && n >= min && n <= max ? "text-good" : "text-warn"}`}>{note}</p>}
       {err && <p className="err" role="alert">{err}</p>}

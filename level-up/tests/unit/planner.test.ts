@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bucketTasks, checkSchedule, dayLoad, nextBestActions, pickMinimumViableDay, recommendedWorkload, type PlannerSettings, type PlannerTask } from "@/lib/game/planner";
+import { bucketTasks, checkSchedule, dayLoad, nextBestActions, nextOccurrences, pickMinimumViableDay, recommendedWorkload, visibleNow, type PlannerSettings, type PlannerTask } from "@/lib/game/planner";
 
 const today = "2026-10-09"; // Friday
 const settings: PlannerSettings = { availability: { mon: 180, tue: 180, wed: 180, thu: 180, fri: 180, sat: 300, sun: 240 }, daily_task_limit: 6, mvd_minutes: 60 };
@@ -122,5 +122,16 @@ describe("bucketing", () => {
     expect(b.overdue.map((x) => x.id)).toEqual(["o"]);
     expect(b.upcoming.map((x) => x.id)).toEqual(["u"]);
     expect(b.backlog.map((x) => x.id)).toEqual(["b"]);
+  });
+});
+
+describe("repeating quests in lists", () => {
+  it("hides future copies of a repeating quest, but never one-off quests", () => {
+    const list = [T({ id: "a", scheduled_date: "2026-10-10", template_id: "tpl" }), T({ id: "b", scheduled_date: "2026-10-10" }), T({ id: "c", scheduled_date: today, template_id: "tpl" })];
+    expect(visibleNow(list, today).map((t) => t.id)).toEqual(["b", "c"]);
+  });
+  it("coming-up shows only the next occurrence of each repeating quest", () => {
+    const list = [T({ id: "r3", scheduled_date: "2026-10-12", template_id: "tpl" }), T({ id: "r1", scheduled_date: "2026-10-10", template_id: "tpl" }), T({ id: "x", scheduled_date: "2026-10-11" }), T({ id: "r2", scheduled_date: "2026-10-11", template_id: "tpl" })];
+    expect(nextOccurrences(list).map((t) => t.id)).toEqual(["r1", "x"]);
   });
 });

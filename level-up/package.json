@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "engines": { "node": ">=20" },
   "description": "Level Up — a personal life RPG for basketball, college, full-stack development and physique.",
   "scripts": {
     "dev": "next dev",
@@ -12,6 +13,7 @@
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:db": "vitest run tests/db",
+    "test:e2e": "node scripts/e2e.mjs",
     "stack": "node scripts/test-stack.mjs",
     "e2e": "node scripts/e2e.mjs"
   },

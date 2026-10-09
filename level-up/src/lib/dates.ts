@@ -89,9 +89,28 @@ export function lastNDays(n: number, today: YMD): YMD[] {
   return eachDay(addDays(today, -(n - 1)), today);
 }
 
-/** Format a calendar day for display, e.g. "Fri 9 Oct". */
-export function formatDay(s: YMD, opts: Intl.DateTimeFormatOptions = { weekday: "short", day: "numeric", month: "short" }): string {
-  return new Intl.DateTimeFormat("en-GB", { ...opts, timeZone: "UTC" }).format(toDate(s));
+const WEEKDAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+export type DayFormat = { weekday?: "short" | "long"; day?: "numeric"; month?: "short" | "long"; year?: "numeric" };
+
+/**
+ * Format a calendar day, e.g. "Fri 9 Oct". Built from fixed tables rather than Intl: Node and browsers disagree on
+ * punctuation ("Sun 25 Oct" vs "Sun, 25 Oct"), which breaks hydration for any client component that shows a date.
+ */
+export function formatDay(s: YMD, f: DayFormat = { weekday: "short", day: "numeric", month: "short" }): string {
+  const d = toDate(s);
+  const wd = f.weekday ? WEEKDAYS_LONG[d.getUTCDay()] : null;
+  const month = f.month ? MONTHS_LONG[d.getUTCMonth()] : null;
+  const dm = [f.day ? String(d.getUTCDate()) : null, f.month === "short" ? month!.slice(0, 3) : month, f.year ? String(d.getUTCFullYear()) : null].filter(Boolean).join(" ");
+  const head = wd ? (f.weekday === "short" ? wd.slice(0, 3) : wd) : null;
+  return [head, dm].filter(Boolean).join(f.weekday === "long" && dm ? ", " : " ");
+}
+
+/** "October 2026" */
+export function formatMonth(s: YMD): string {
+  const d = toDate(s);
+  return `${MONTHS_LONG[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 /** Friendly relative label: Today / Tomorrow / Yesterday / weekday / date. */
@@ -104,10 +123,12 @@ export function relativeDay(s: YMD, today: YMD): string {
   return formatDay(s);
 }
 
-/** Format a stored timestamp in the user's own time zone. */
-export function formatTimestamp(ts: string | Date, tz: string, opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }): string {
+/** Format a stored timestamp in the user's own time zone, e.g. "9 Oct, 02:18". Deterministic across Node and browsers. */
+export function formatTimestamp(ts: string | Date, tz: string): string {
   const d = typeof ts === "string" ? new Date(ts) : ts;
-  return new Intl.DateTimeFormat("en-GB", { ...opts, timeZone: tz }).format(d);
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: tz, day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${Number(get("day"))} ${MONTHS_LONG[Number(get("month")) - 1].slice(0, 3)}, ${get("hour").padStart(2, "0")}:${get("minute").padStart(2, "0")}`;
 }
 
 export function formatMinutes(min: number | null | undefined): string {

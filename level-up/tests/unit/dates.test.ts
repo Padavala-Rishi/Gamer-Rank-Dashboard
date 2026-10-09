@@ -70,3 +70,17 @@ describe("dates", () => {
     expect(isValidTimeZone("Mars/Olympus")).toBe(false);
   });
 });
+
+describe("deterministic date formatting (must not depend on the runtime's ICU data)", () => {
+  it("formats days the same everywhere", async () => {
+    const { formatDay, formatMonth, formatTimestamp } = await import("@/lib/dates");
+    expect(formatDay("2026-10-25")).toBe("Sun 25 Oct");
+    expect(formatDay("2026-10-09", { day: "numeric", month: "short" })).toBe("9 Oct");
+    expect(formatDay("2026-10-12", { weekday: "long" })).toBe("Monday");
+    expect(formatDay("2026-10-09", { weekday: "long", day: "numeric", month: "long" })).toBe("Friday, 9 October");
+    expect(formatDay("2027-01-03", { day: "numeric", month: "short", year: "numeric" })).toBe("3 Jan 2027");
+    expect(formatMonth("2026-02-14")).toBe("February 2026");
+    expect(formatTimestamp("2026-10-09T20:30:00Z", "Asia/Kolkata")).toBe("10 Oct, 02:00");
+    expect(formatTimestamp("2026-10-09T00:05:00Z", "UTC")).toBe("9 Oct, 00:05");
+  });
+});

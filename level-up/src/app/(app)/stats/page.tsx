@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ChartFrame, domainSeries, SimpleBars, StackedBars } from "@/components/charts";
+import { ChartFrame, SimpleBars, StackedBars } from "@/components/charts";
+import { domainSeries } from "@/lib/chart-config";
 import { Icon } from "@/components/icon";
 import { Money, Notice, ProgressBar, Section, Stat } from "@/components/ui";
 import { CATEGORIES, CATEGORY_KEYS, CHART_ORDER, type CategoryKey } from "@/lib/constants";

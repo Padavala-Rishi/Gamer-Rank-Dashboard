@@ -240,7 +240,7 @@ export function TaskForm({ today, initial, defaults, onDone }: { today: string; 
         </Notice>
       )}
 
-      <div className="flex justify-end gap-2 pt-1">
+      <div className="sticky bottom-0 -mx-5 -mb-4 flex justify-end gap-2 border-t border-line bg-surface px-5 py-3">
         <button type="button" className="btn btn-ghost" onClick={onDone}>Cancel</button>
         <button type="submit" className="btn btn-primary" disabled={pending || !title.trim()}>{pending ? "Saving…" : editing ? "Save changes" : repeat !== "none" ? "Create repeating quest" : "Add quest"}</button>
       </div>
