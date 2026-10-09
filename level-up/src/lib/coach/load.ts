@@ -1,6 +1,6 @@
 import { addDays, startOfMonth, type YMD } from "../dates";
 import { buildCharacter, curvesFromSettings } from "../game/xp";
-import type { Supa } from "../supabase/server";
+import type { Supa } from "@/db/client";
 import type { Profile, ProgressSummary, Settings } from "../types";
 import type { RawCoachData } from "./context";
 import { shapeCoachContext } from "./context";

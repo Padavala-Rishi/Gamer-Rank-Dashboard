@@ -1,12 +1,11 @@
-"use server";
-import { revalidatePath } from "next/cache";
+import { notifyChange } from "@/db/events";
 import { z } from "zod";
-import { run, check, type ActionResult } from "@/lib/server/action";
-import { getContext } from "@/lib/server/context";
+import { run, check, type ActionResult } from "@/lib/data/action";
+import { getContext } from "@/lib/data/context";
 import { newPersonalRecords, type SetRow } from "@/lib/game/domain";
 import { healthDaySchema, uuid, workoutSchema, ymd } from "@/lib/schemas";
 
-const refresh = () => revalidatePath("/", "layout");
+const refresh = () => notifyChange();
 
 function notFuture(day: string, today: string) {
   if (day > today) throw Object.assign(new Error("That date is in the future. Log it on the day."), { code: "LV001" });

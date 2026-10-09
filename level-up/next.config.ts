@@ -1,23 +1,13 @@
 import type { NextConfig } from "next";
 
+// A fully static app: `next build` writes plain files to ./out. There is no server, no API and no environment variables.
 const config: NextConfig = {
+  output: "export",
   reactStrictMode: true,
   poweredByHeader: false,
+  trailingSlash: false,
   allowedDevOrigins: ["127.0.0.1"],
-  // Server Actions are same-origin only by default; nothing extra is allowed here.
-  async headers() {
-    return [
-      {
-        source: "/:path*",
-        headers: [
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "DENY" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-        ],
-      },
-    ];
-  },
+  images: { unoptimized: true },
 };
 
 export default config;

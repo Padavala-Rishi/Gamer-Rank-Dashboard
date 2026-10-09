@@ -1,10 +1,9 @@
-"use server";
-import { revalidatePath } from "next/cache";
-import { run, check, type ActionResult } from "@/lib/server/action";
-import { getContext } from "@/lib/server/context";
-import { loadSampleData } from "@/lib/server/sample";
+import { notifyChange } from "@/db/events";
+import { run, check, type ActionResult } from "@/lib/data/action";
+import { getContext } from "@/lib/data/context";
+import { loadSampleData } from "@/lib/data/sample";
 
-const refresh = () => revalidatePath("/", "layout");
+const refresh = () => notifyChange();
 
 export async function loadSample(): Promise<ActionResult<{ loaded: boolean }>> {
   return run(async () => { const r = await loadSampleData(); refresh(); return r; });

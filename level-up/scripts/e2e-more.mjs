@@ -1,9 +1,9 @@
-// Second half of the e2e suite (see e2e.mjs). The first user ("Rishi") is signed in at level 2 with sample data loaded.
-import { chromium } from "playwright-core";
+// Second half of the e2e suite (see e2e.mjs). The first profile ("Rishi") is at level 2 with sample data loaded.
+import { readFileSync } from "node:fs";
 
 export async function run(h) {
-  const { BASE, SUPABASE, ANON_KEY, browser, newCtx, watch, test, assert, eq, text, shot, uid, signUp, onboard, signIn, xpOf, toast, questRow, U, V } = h;
-  const page = h.page;
+  const { BASE, browser, ctx, newCtx, watch, test, assert, eq, text, shot, uid, startFresh, onboard, xpOf, toast, questRow, U } = h;
+  let page = h.page; // replaced when the tab is closed and reopened
   page.on("dialog", (d) => d.accept());
   const today = new Date().toISOString().slice(0, 10);
   const plus = (n) => new Date(Date.parse(today + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10);
@@ -23,7 +23,13 @@ export async function run(h) {
     if (more) await more(d);
     await d.getByRole("button", { name: /Add quest|Create repeating quest/ }).click();
   }
-  const open = (path) => page.goto(BASE + path);
+  const open = (path) => h.page.goto(BASE + path);
+  async function downloadBackup() {
+    await open("/settings");
+    const [dl] = await Promise.all([h.page.waitForEvent("download"), h.page.getByTestId("backup-download").click()]);
+    assert(/^level-up-backup-\d{4}-\d\d-\d\d\.json$/.test(dl.suggestedFilename()), "filename " + dl.suggestedFilename());
+    return JSON.parse(readFileSync(await dl.path(), "utf8"));
+  }
   const money = (n) => `₹${n.toLocaleString("en-IN")}`;
 
   console.log("\nPlanner");
@@ -397,13 +403,15 @@ export async function run(h) {
     await toast(page, /Saved/);
   });
 
-  console.log("\nAI coach (no key configured)");
-  await test("the coach says plainly that it is off and the rest of the app is unaffected", async () => {
+  console.log("\nAI coach (bring your own key)");
+  await test("the coach says plainly that it needs your own key, and the rest of the app is unaffected", async () => {
     await open("/coach");
     const t = await text(page);
-    assert(/switched off on this server/.test(t), "honest status");
+    assert(await page.getByTestId("coach-nokey").isVisible(), "no-key notice");
+    assert(/Anthropic API key/.test(t), "says what it needs");
     assert(await page.getByTestId("coach-ask").isDisabled(), "ask disabled");
     assert(/never sent/i.test(t) && /Your email, password/.test(t), "disclosure lists what is never sent");
+    assert(/no Level Up server/i.test(t), "explains there is no server in between");
     await shot(page, "13-coach");
   });
   await test("the preview shows exactly what would be sent and contains no private data", async () => {
@@ -412,78 +420,145 @@ export async function run(h) {
     const pre = await page.getByTestId("coach-preview").innerText();
     const j = JSON.parse(pre);
     assert(j.quests && j.character && j.capacity_today, "has the shaped context");
-    assert(!pre.includes(U.email) && !/@/.test(pre), "no email");
+    assert(!/@/.test(pre), "no email");
     assert(!/Iron House|Bloom Bakery/.test(pre), "no lead names");
     assert(!pre.includes("71.5"), "no bodyweight");
   });
-  await test("the coach API refuses cleanly when unconfigured", async () => {
-    const r = await page.request.post(BASE + "/api/coach", { data: { mode: "next" }, headers: { origin: BASE } });
-    eq(r.status(), 501);
-    assert((await r.json()).message.includes("isn't set up"), "message");
-    const cross = await page.request.post(BASE + "/api/coach", { data: { mode: "next" }, headers: { origin: "https://evil.example" } });
-    eq(cross.status(), 403, "cross-origin refused");
-    const bad = await page.request.post(BASE + "/api/coach", { data: { mode: "hack" }, headers: { origin: BASE } });
-    eq(bad.status(), 400);
+  await test("an API key is validated, stored only on this device, and can be removed", async () => {
+    await open("/settings");
+    const key = page.locator("#ai-key");
+    await key.fill("not-a-key");
+    await page.getByRole("button", { name: "Save key" }).click();
+    await page.getByText(/doesn't look like an Anthropic API key/).waitFor();
+    await key.fill("sk-ant-api03-" + "k".repeat(40));
+    await page.getByRole("button", { name: "Save key" }).click();
+    await toast(page, /API key saved on this device/);
+    eq(await page.evaluate(() => localStorage.getItem("lu:anthropic-key")?.slice(0, 7)), "sk-ant-");
+    await open("/coach");
+    assert(!(await page.getByTestId("coach-nokey").isVisible().catch(() => false)), "no-key notice gone");
+    // while the coach is on, asking sends one request straight to api.anthropic.com (answered here by a stub)
+    const seen = [];
+    await page.route("https://api.anthropic.com/**", async (route) => {
+      seen.push({ url: route.request().url(), key: route.request().headers()["x-api-key"], body: route.request().postData() });
+      await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } }) });
+    });
+    if (!(await page.getByTestId("coach-consent").isChecked())) await page.getByTestId("coach-consent").check();
+    await toast(page, /Coach enabled/);
+    await page.getByTestId("coach-ask").click();
+    await page.getByText(/Anthropic rejected your API key/).waitFor({ timeout: 15000 });
+    eq(seen.length, 1, "exactly one request");
+    assert(seen[0].url.startsWith("https://api.anthropic.com/"), "goes straight to Anthropic: " + seen[0].url);
+    assert(seen[0].key?.startsWith("sk-ant-api03-"), "the user's own key is used");
+    assert(!seen[0].body.includes("Iron House") && !/@/.test(seen[0].body.replace(/@anthropic/g, "")), "request body is the shaped summary only");
+    await page.unroute("https://api.anthropic.com/**");
+    await open("/settings");
+    await page.getByRole("button", { name: "Remove key" }).click();
+    await toast(page, /API key removed/);
+    eq(await page.evaluate(() => localStorage.getItem("lu:anthropic-key")), null);
   });
 
-  console.log("\nData export, sign-out and persistence");
-  await test("export contains my records as a download", async () => {
-    const r = await page.request.get(BASE + "/api/export");
-    eq(r.status(), 200);
-    assert(/attachment/.test(r.headers()["content-disposition"]), "download header");
-    const j = await r.json();
+  console.log("\nBackup, restore and persistence");
+  let backupText;
+  await test("a backup downloads as a JSON file with my records", async () => {
+    const j = await downloadBackup();
+    backupText = JSON.stringify(j);
+    eq([j.app, j.format], ["level-up", 1]);
     assert(j.tables.tasks.some((t) => t.title === "Ship the portfolio"), "has my quest");
     assert(j.tables.xp_transactions.length > 0 && j.tables.income_records.length >= 2, "ledger and money");
+    assert(j.tables.profiles[0].character_name === "Rishi", "profile");
   });
-  await test("signing out and back in keeps all progress", async () => {
+  await test("the page is honest that data lives only on this device", async () => {
+    assert(/nothing is backed up for you/i.test(await text(page)), "backup warning");
+  });
+  await test("erasing the data and restoring the backup brings back exactly the same progress", async () => {
     await open("/");
     const xp = await xpOf(page);
-    await page.getByRole("button", { name: "Sign out" }).first().click();
-    await page.waitForURL("**/login");
-    await open("/quests");
-    assert(page.url().includes("/login"), "session is really gone");
-    await signIn(page, U.email);
-    eq(await xpOf(page), xp, "xp after sign-in");
-    assert(/Level 2/.test(await text(page)), "level kept");
+    const levelText = (await text(page)).match(/Level \d+/)?.[0];
+    await open("/settings");
+    await page.getByLabel("Type RESET to confirm").fill("RESET");
+    await page.getByRole("button", { name: "Reset", exact: true }).click();
+    await toast(page, /All progress reset/);
+    await open("/");
+    eq(await xpOf(page), 0, "xp after reset");
+    await open("/settings");
+    await page.getByTestId("backup-file").setInputFiles({ name: "backup.json", mimeType: "application/json", buffer: Buffer.from(backupText) });
+    await toast(page, /Restored \d+ records/);
+    await open("/");
+    eq(await xpOf(page), xp, "xp after restore");
+    eq((await text(page)).match(/Level \d+/)?.[0], levelText, "level after restore");
+    await open("/quests?view=done");
+    await page.getByText("Ship the portfolio").first().waitFor({ timeout: 8000 });
+  });
+  await test("restoring a file that isn't a backup is refused and changes nothing", async () => {
+    await open("/");
+    const xp = await xpOf(page);
+    await open("/settings");
+    await page.getByTestId("backup-file").setInputFiles({ name: "x.json", mimeType: "application/json", buffer: Buffer.from('{"hello":"world"}') });
+    await toast(page, /isn't a Level Up backup/);
+    await page.getByTestId("backup-file").setInputFiles({ name: "y.json", mimeType: "application/json", buffer: Buffer.from("not json at all") });
+    await toast(page, /isn't valid JSON/);
+    await open("/");
+    eq(await xpOf(page), xp, "xp unchanged");
+  });
+  await test("progress survives closing the browser tab and opening the app again", async () => {
+    await open("/");
+    const xp = await xpOf(page);
+    const url = page.url();
+    await page.close();
+    const again = await ctx.newPage();
+    watch(again, "reopened");
+    again.on("dialog", (d) => d.accept());
+    await again.hardGoto(url);
+    await again.waitForSelector("h1");
+    eq(await xpOf(again), xp, "xp after reopening");
+    page = again; h.page = again; globalThis.__page = again;
   });
 
-  console.log("\nUser data isolation");
+  console.log("\nOffline");
+  await test("after the first visit the whole app opens and works with no network at all", async () => {
+    const files = await page.evaluate(async () => {
+      await navigator.serviceWorker.ready;
+      const name = (await caches.keys()).find((k) => k.startsWith("level-up-"));
+      return name ? (await (await caches.open(name)).keys()).length : 0;
+    });
+    assert(files > 50, "service worker cache holds the app: " + files + " files");
+    await open("/");
+    const xp = await xpOf(page);
+    await ctx.setOffline(true);
+    try {
+      await page.hardGoto(BASE + "/stats"); // a real page load with the network cut
+      assert((await text(page)).includes("Stats"), "stats page opened offline");
+      await open("/quests");
+      await questRow(page, "Ship the portfolio").or(page.getByRole("heading", { name: "Today", exact: true })).first().waitFor({ timeout: 10000 });
+      await page.hardGoto(BASE + "/");
+      eq(await xpOf(page), xp, "xp offline");
+    } finally { await ctx.setOffline(false); }
+  });
+
+  console.log("\nOne browser profile = one set of data");
   const ctxB = await newCtx();
   const pageB = await ctxB.newPage();
-  watch(pageB, "userB");
-  await test("a second user starts empty and cannot see the first user's data", async () => {
-    await signUp(pageB, V.email, V.name);
-    await onboard(pageB, { sample: false });
+  watch(pageB, "profileB");
+  await test("a different browser profile starts as a brand-new install, with none of this data", async () => {
+    await startFresh(pageB);
+    await onboard(pageB, { sample: false, name: "Other" });
     const t = await text(pageB);
     assert(/Level 1/.test(t) && /0 \/ 100 XP/.test(t), "fresh character");
     await pageB.goto(BASE + "/quests");
-    assert(!(await text(pageB)).includes("Ship the portfolio"), "A's quest visible to B");
-    const j = await (await pageB.request.get(BASE + "/api/export")).json();
-    assert(j.tables.tasks.length === 0 && !JSON.stringify(j).includes("Ship the portfolio"), "B's export leaks A's data");
-  });
-  await test("the database itself refuses cross-user access (direct REST calls with a real token)", async () => {
-    const token = async (email) => (await (await fetch(`${SUPABASE}/auth/v1/token?grant_type=password`, { method: "POST", headers: { "content-type": "application/json", apikey: ANON_KEY }, body: JSON.stringify({ email, password: "password123" }) })).json()).access_token;
-    const a = await token(U.email), b = await token(V.email);
-    const rest = (tok, path, init = {}) => fetch(`${SUPABASE}/rest/v1/${path}`, { ...init, headers: { apikey: ANON_KEY, authorization: `Bearer ${tok}`, "content-type": "application/json", prefer: "return=representation", ...(init.headers ?? {}) } });
-    const mine = await (await rest(a, "tasks?select=id,title&title=eq.Ship the portfolio")).json();
-    assert(mine.length === 1, "A can read their own quest");
-    const id = mine[0].id;
-    eq(await (await rest(b, `tasks?id=eq.${id}`)).json(), [], "B reading A's quest");
-    eq(await (await rest(b, `tasks?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ title: "pwned" }) })).json(), [], "B editing A's quest");
-    eq(await (await rest(b, `tasks?id=eq.${id}`, { method: "DELETE" })).json(), [], "B deleting A's quest");
-    const rpc = await rest(b, "rpc/complete_task", { method: "POST", body: JSON.stringify({ p_task_id: id }) });
-    assert(rpc.status >= 400, "B completing A's quest must fail, got " + rpc.status);
-    eq(await (await rest(b, "xp_transactions")).json(), [], "B reading A's ledger");
-    const forge = await rest(b, "xp_transactions", { method: "POST", body: JSON.stringify({ category: "dev", amount: 9999, kind: "quest", local_date: today }) });
-    assert(forge.status === 403 || forge.status === 401, "forging XP must be denied, got " + forge.status);
-    const forgeA = await rest(a, "xp_transactions", { method: "POST", body: JSON.stringify({ category: "dev", amount: 9999, kind: "quest", local_date: today }) });
-    assert(forgeA.status === 403, "even the owner cannot write XP directly, got " + forgeA.status);
-    const still = await (await rest(a, `tasks?id=eq.${id}&select=title`)).json();
-    eq(still[0].title, "Ship the portfolio", "A's quest untouched");
-    const anon = await fetch(`${SUPABASE}/rest/v1/tasks`, { headers: { apikey: ANON_KEY } });
-    assert(anon.status === 401 || anon.status === 403, "anonymous read denied, got " + anon.status);
+    assert(!(await text(pageB)).includes("Ship the portfolio"), "profile A's quest visible to B");
   });
   await ctxB.close();
+  await test("a second tab of the same profile is told to close the other one instead of risking the data", async () => {
+    const second = await ctx.newPage();
+    watch(second, "second-tab");
+    await second.hardGoto(BASE + "/");
+    await second.getByTestId("db-locked").waitFor({ timeout: 30000 });
+    assert(/open in another tab/i.test(await text(second)), "message");
+    await second.close();
+    const first = page;
+    await first.goto(BASE + "/quests"); // the first tab keeps working
+    assert((await text(first)).length > 100, "first tab still fine");
+  });
 
   console.log("\nAccessibility and keyboard");
   await test("every main page has one h1, a main landmark, and no unnamed buttons or links", async () => {
@@ -533,7 +608,8 @@ export async function run(h) {
   watch(mp, "mobile");
   mp.on("dialog", (d) => d.accept());
   await test("mobile: bottom navigation replaces the sidebar and pages never scroll sideways", async () => {
-    await signIn(mp, U.email);
+    await startFresh(mp);
+    await onboard(mp, { name: "Phone" });
     assert(await mp.locator('nav[aria-label="Main"]').last().isVisible(), "bottom nav visible");
     assert(!(await mp.locator("aside").isVisible()), "sidebar hidden on phones");
     const wide = [];
@@ -572,7 +648,8 @@ export async function run(h) {
   const tp = await tctx.newPage();
   watch(tp, "tablet");
   await test("tablet: layout fits without sideways scrolling", async () => {
-    await signIn(tp, U.email);
+    await startFresh(tp);
+    await onboard(tp, { name: "Tablet" });
     for (const p of ["/", "/quests", "/dev", "/health", "/stats"]) {
       await tp.goto(BASE + p); await tp.waitForSelector("h1");
       const over = await tp.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -595,7 +672,7 @@ export async function run(h) {
     assert(!t.includes("Iron House"), "sample lead/quests gone");
     const after = await xpOf(page);
     assert(after < before || /Level 2/.test(t) === false || true, "xp reduced"); // level may change; value checked below via export
-    const j = await (await page.request.get(BASE + "/api/export")).json();
+    const j = await downloadBackup();
     assert(j.tables.tasks.some((x) => x.title === "Ship the portfolio" && x.status === "done"), "real quest kept");
     assert(!j.tables.tasks.some((x) => x.is_sample), "no sample tasks remain");
     const net = j.tables.xp_transactions.reduce((a, x) => a + x.amount, 0);

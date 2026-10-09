@@ -2,7 +2,9 @@
 import { useState, useTransition, type ReactNode } from "react";
 import { loadSample, removeSample, resetAllData } from "@/app/actions/data";
 import { saveProfile, saveSettings, setTheme } from "@/app/actions/profile";
-import { signOut } from "@/app/actions/auth";
+import { exportBackup, backupFilename, importBackup } from "@/db/backup";
+import { clearApiKey, saveApiKey } from "@/lib/coach/browser";
+import { useApiKey } from "@/lib/coach/use-api-key";
 import { Avatar, AVATAR_TONE_COLORS } from "@/components/avatar";
 import { Icon } from "@/components/icon";
 import { Field, Notice } from "@/components/ui";
@@ -201,12 +203,26 @@ export function TimerForm({ s }: { s: Settings }) {
   );
 }
 
-export function AiForm({ consent, configured }: { consent: boolean; configured: boolean }) {
+export function AiForm({ consent }: { consent: boolean }) {
   const { pending, err, save } = useSave();
+  const { toast } = useUI();
   const [on, setOn] = useState(consent);
+  const { hasKey, refresh } = useApiKey();
+  const [key, setKey] = useState("");
+  const [keyErr, setKeyErr] = useState<string | null>(null);
   return (
     <Card id="ai" title="AI coach" hint="Optional. The rest of the app works the same without it.">
-      <Notice tone={configured ? "good" : "warn"} className="mb-3">{configured ? "An AI provider key is configured on the server." : "No AI provider key is configured on the server, so the coach is switched off. Set ANTHROPIC_API_KEY on the server to enable it."}</Notice>
+      <Notice tone={hasKey ? "good" : "info"} className="mb-3">{hasKey ? "Your Anthropic API key is saved on this device." : "The coach needs your own Anthropic API key. There is no server in between: the app talks to Anthropic directly from this device."}</Notice>
+      <div className="mb-4">
+        <label className="label" htmlFor="ai-key">Anthropic API key</label>
+        <div className="flex flex-wrap items-center gap-2">
+          <input id="ai-key" className="input !w-72 max-w-full" type="password" autoComplete="off" spellCheck={false} placeholder={hasKey ? "Saved. Paste a new key to replace it" : "sk-ant-…"} value={key} onChange={(e) => setKey(e.target.value)} />
+          <button type="button" className="btn btn-sm" disabled={!key.trim()} onClick={() => { try { saveApiKey(key); setKey(""); setKeyErr(null); refresh(); toast("API key saved on this device", "good"); } catch (e) { setKeyErr(e instanceof Error ? e.message : "Couldn't save the key"); } }}>Save key</button>
+          {hasKey && <button type="button" className="btn btn-sm" onClick={() => { clearApiKey(); refresh(); toast("API key removed", "info"); }}>Remove key</button>}
+        </div>
+        {keyErr && <p className="err">{keyErr}</p>}
+        <p className="hint">Stored only in this browser's local storage and sent only to api.anthropic.com. Anyone who can use this browser profile could read it, so use a key with a spending limit. Requests are billed to your Anthropic account.</p>
+      </div>
       <form onSubmit={(e) => { e.preventDefault(); save(() => saveSettings({ ai_consent: on }), on ? "AI coach enabled" : "AI coach disabled"); }}>
         <label className="flex cursor-pointer items-start gap-3 text-sm"><input type="checkbox" className="mt-1 size-4 accent-[var(--accent)]" checked={on} onChange={(e) => setOn(e.target.checked)} /><span>Allow the coach to send a summary of my recorded progress to the AI provider when I ask for advice. <a className="text-accent" href="/coach#data">See exactly what's sent.</a></span></label>
         <SaveBar pending={pending} err={err} />
@@ -223,14 +239,23 @@ export function DataCard({ hasSample }: { hasSample: boolean }) {
   return (
     <Card id="data" title="Your data">
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-sm font-semibold">Export everything</div><div className="text-xs text-muted">A JSON file with all your records. It contains personal data, so keep it safe.</div></div><a className="btn btn-sm" href="/api/export" download><Icon name="download" size={14} />Download JSON</a></div>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4"><div><div className="text-sm font-semibold">Sample data</div><div className="text-xs text-muted">{hasSample ? "Example quests and records are in your account. Removing them also removes any XP they earned." : "Add example quests, drills, a subject and more to explore the app."}</div></div>
+        <div className="rounded-xl border border-line p-3 text-xs text-muted">Your data lives only in this browser on this device. There is no account and no server, so <b>nothing is backed up for you</b>: if you clear site data, uninstall the app or lose the phone, it is gone. Download a backup regularly. The Home-Screen app and the Safari tab on an iPhone keep <i>separate</i> data, so use a backup to move between them.</div>
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-sm font-semibold">Back up everything</div><div className="text-xs text-muted">A JSON file with all your records. It contains personal data, so keep it safe.</div></div><button className="btn btn-sm" disabled={pending} onClick={() => start(async () => { try { const b = await exportBackup(); download(backupFilename(), JSON.stringify(b, null, 2)); toast("Backup downloaded", "good"); } catch { toast("Couldn't create the backup", "bad"); } })} data-testid="backup-download"><Icon name="download" size={14} />Download backup</button></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4"><div><div className="text-sm font-semibold">Restore from a backup</div><div className="text-xs text-muted">Replaces everything on this device with the file's contents.</div></div>
+          <label className="btn btn-sm cursor-pointer"><Icon name="upload" size={14} />Choose backup file<input type="file" accept="application/json,.json" className="sr-only" data-testid="backup-file" disabled={pending} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; if (!confirm("Replace everything on this device with this backup?")) return; start(async () => { try { const r = await importBackup(JSON.parse(await f.text())); toast(`Restored ${r.rows} records`, "good"); } catch (x) { toast(x instanceof SyntaxError ? "That file isn't valid JSON." : x instanceof Error ? x.message : "Couldn't restore the backup", "bad"); } }); }} /></label></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4"><div><div className="text-sm font-semibold">Sample data</div><div className="text-xs text-muted">{hasSample ? "Example quests and records are on this device. Removing them also removes any XP they earned." : "Add example quests, drills, a subject and more to explore the app."}</div></div>
           {hasSample ? <button className="btn btn-sm" disabled={pending} onClick={() => { if (confirm("Remove all sample data and the XP it earned?")) start(async () => { const r = await removeSample(); if (!r.ok) toast(r.error, "bad"); else toast(`Removed ${r.data.quests_removed} sample quests${r.data.xp_removed ? ` and ${r.data.xp_removed} XP` : ""}`, "info"); }); }}>Remove sample data</button>
             : <button className="btn btn-sm" disabled={pending} onClick={() => start(async () => { const r = await loadSample(); if (!r.ok) toast(r.error, "bad"); else toast(r.data.loaded ? "Sample data added" : "Sample data was already added", "good"); })}>Add sample data</button>}</div>
-        <div className="border-t border-line pt-4"><div className="text-sm font-semibold text-bad">Reset all progress</div><div className="mb-2 text-xs text-muted">Deletes every quest, log, XP record and badge in your account. Your login and settings stay. This can't be undone.</div>
+        <div className="border-t border-line pt-4"><div className="text-sm font-semibold text-bad">Reset all progress</div><div className="mb-2 text-xs text-muted">Deletes every quest, log, XP record and badge on this device. Your profile and settings stay. This can't be undone.</div>
           <div className="flex flex-wrap items-center gap-2"><input className="input !w-44" aria-label="Type RESET to confirm" placeholder="Type RESET" value={typed} onChange={(e) => setTyped(e.target.value)} /><button className="btn btn-danger btn-sm" disabled={pending || typed !== "RESET"} onClick={() => start(async () => { const r = await resetAllData(typed); if (!r.ok) setErr(r.error); else { setTyped(""); toast("All progress reset", "info"); } })}>Reset</button></div>{err && <p className="err">{err}</p>}</div>
-        <div className="flex items-center justify-between border-t border-line pt-4"><div className="text-xs text-muted">To delete your account entirely, ask the owner of this deployment (it needs the Supabase admin console).</div><form action={signOut}><button className="btn btn-sm" type="submit"><Icon name="log-out" size={14} />Sign out</button></form></div>
       </div>
     </Card>
   );
+}
+
+function download(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }

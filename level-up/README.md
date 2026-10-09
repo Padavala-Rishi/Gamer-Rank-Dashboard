@@ -12,63 +12,80 @@ Complete real quests, earn XP, level up. Four areas, each with its own attribute
 Plus a daily quest board with a realistic-workload planner, a Minimum Viable Day mode, statistics that refuse to
 invent insights, badges/titles/self-defined rewards, and an optional AI coach.
 
-**Stack:** Next.js 16 (App Router, Server Actions) · React 19 · TypeScript · Tailwind CSS 4 · Supabase (Postgres, Auth,
-RLS) · Recharts · Lucide. The optional coach uses the Anthropic API from the server.
+## It runs entirely on your device
+
+There is **no server, no database service and no account**. The whole app is static files. Your data lives in a
+Postgres database that runs inside the browser (PGlite, Postgres compiled to WebAssembly) and is saved to the browser's
+IndexedDB. Nothing is sent anywhere unless you turn on the optional AI coach.
+
+**Stack:** Next.js 16 (static export) · React 19 · TypeScript · Tailwind CSS 4 · PGlite (Postgres in WebAssembly) ·
+Recharts · Lucide. No environment variables.
+
+> **Read this once.** Because the data is only on your device: nothing is backed up for you, and there is no sync between
+> devices. Clearing the site's data, uninstalling the home-screen app, or losing the phone loses your progress. Use
+> **Settings → Back up everything** regularly. See [Your data](#your-data-and-its-limits).
 
 ---
 
-## 1. Run it (hosted Supabase — the normal way)
+## 1. Use it
 
-1. **Create a Supabase project** (free tier is fine).
-2. **Create the schema.** In the project's SQL editor run, in order:
-   `supabase/migrations/0001_schema.sql`, `0002_functions.sql`, `0003_seed_reference.sql`
-   (or `supabase db push` with the Supabase CLI).
-3. **Configure the app.** Copy `.env.example` to `.env.local` and fill in the two public values from
-   *Project Settings → API*:
-   ```
-   NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-or-publishable-key
-   ```
-4. **Auth settings** (*Authentication → URL Configuration*): set *Site URL* to your deployed URL and add
-   `https://YOUR-SITE/auth/callback` to *Redirect URLs*. Email confirmation can stay on (the app handles both).
-5. `npm install && npm run dev` → http://localhost:3000. Sign up, and the onboarding wizard starts.
+### On your phone (recommended)
+1. Deploy it once (below) and open the URL on your phone.
+2. **iPhone:** Safari → Share → *Add to Home Screen*. **Android:** Chrome → menu → *Install app* / *Add to Home screen*.
+3. Open it from the home screen. The first launch takes a few seconds while the database is created; after that it opens
+   fast, and it works with no network at all.
 
-If the two values are missing the app shows a **Setup required** page instead of pretending to work.
+### Deploy to Vercel (free)
+Import the repository, set **Root Directory = `level-up`**, and deploy. No settings or environment variables are
+needed: `vercel.json` already says to run `npm run build` and serve `out/`. Any static host works the same way
+(Netlify, Cloudflare Pages, S3…): upload the contents of `out/` after `npm run build`.
 
-### Deploy to Vercel
-Import the repository, set **Root Directory = `level-up`**, add the same environment variables, deploy.
-Then add the deployed URL to Supabase's Site URL / Redirect URLs (step 4).
-
-### Optional: the AI coach
-Set `ANTHROPIC_API_KEY` **on the server only** (never `NEXT_PUBLIC_`). Without it, the coach page says plainly that it
-is off and every other feature works the same. Each user must also switch the coach on in Settings. Model:
-`claude-opus-5-5` by default; override with `ANTHROPIC_MODEL`.
-
-## 2. Run it with no Supabase account (Linux, for development and testing)
-
-`npm run stack` starts **real PostgreSQL 16 + real PostgREST** plus a small stand-in for Supabase Auth, all behind
-`http://127.0.0.1:54321`, and applies the three migrations. It needs the PostgreSQL 16 server binaries
-(`/usr/lib/postgresql/16/bin`) and downloads PostgREST on first run.
-
+### On your computer
 ```bash
-npm run stack                      # start (add -- --fresh to wipe)
-node scripts/test-stack.mjs env > .env.local
-npm run dev
+npm install
+npm run build      # writes the static site to ./out (and the offline service worker)
+npm start          # serves ./out on http://127.0.0.1:3000
 ```
-**It is not Supabase Auth.** It implements sign-up, password sign-in, refresh, user lookup and sign-out only: no email
-confirmation or reset mails, OAuth, or rate limiting. Do not use it in production.
+For development: `npm run dev`.
+
+### Optional: the AI coach (bring your own key)
+The coach is off until you paste **your own Anthropic API key** in *Settings → AI coach* and tick the consent box.
+There is no Level Up server in the middle: when you press *Ask the coach*, your browser sends a summary of your recorded
+progress straight to `api.anthropic.com` with your key, and the answer is saved on your device.
+* The key is stored in this browser's local storage. Anyone who can use this browser profile could read it, so use a key
+  with a spending limit. Requests are billed to your Anthropic account.
+* The summary is shaped by `src/lib/coach/context.ts` and contains no email, notes, contact details, lead names,
+  payments or body measurements. *Settings → Show exactly what would be sent* previews the real payload.
+* Default model `claude-opus-5-5`. The coach has **not** been run against the live API (see below).
 
 ---
+
+## 2. Your data and its limits
+
+* **Where:** the browser's IndexedDB for this site (database name `level-up`). One browser profile = one set of data.
+  A different phone, browser or private window starts as a brand-new install.
+* **iPhone gotcha:** the Safari tab and the Home-Screen app keep *separate* data. Pick one (the Home-Screen app) and
+  stay with it, or move between them with a backup file. Safari may also delete a site's data after a while without use
+  if the site is not installed to the Home Screen.
+* **Backup / restore:** *Settings → Your data*. The backup is a JSON file with every record. Restore replaces
+  everything on the device with the file's contents, in one transaction (all or nothing), and does not pay any new XP.
+  Files made by the earlier hosted version of this app can also be restored.
+* **Only one tab at a time.** Two tabs writing the same browser database could corrupt it, so a second tab is shown
+  "Level Up is open in another tab" instead of opening it.
+* **Offline:** a service worker caches the whole app after the first visit (about 16 MB, mostly the database engine).
+  New versions install in the background and take over the next time the app is fully closed and reopened.
+* **Privacy:** there are no analytics, trackers or accounts. Anyone who can unlock your phone and open the app can read
+  your data; there is no passcode inside the app.
 
 ## 3. How it works
 
 ### The XP engine is in the database
-Clients never send an XP amount. `complete_task(task_id)` and `undo_task(task_id)` are `SECURITY DEFINER` functions that
-read the caller from `auth.uid()`, lock the quest row, and write an **append-only ledger** (`xp_transactions`).
-* **Idempotent and race-safe:** the row lock plus unique constraints (`xp_one_award_per_round`, `unique(reverses_id)`)
-  mean ten simultaneous requests pay once.
-* **Undo** writes linked reversal rows, so history is preserved and re-completing pays once overall. Level-up events
-  are recorded once per level, so undo/redo cannot replay a celebration.
+The original schema, row-level security and functions (`supabase/migrations/*.sql`) run **unchanged** in the in-browser
+Postgres. Clients never send an XP amount. `complete_task(task_id)` and `undo_task(task_id)` are `SECURITY DEFINER`
+functions that lock the quest row and write an **append-only ledger** (`xp_transactions`).
+* **Idempotent:** unique constraints (`xp_one_award_per_round`, `unique(reverses_id)`) mean a double-click pays once.
+* **Undo** writes linked reversal rows, so history is preserved and re-completing pays once overall. Level-up events are
+  recorded once per level, so undo/redo cannot replay a celebration.
 * **No farming:** a quest instance completes once; quests dated in the future cannot be completed early; Boss Quests wait
   for their open sub-quests; completed quests cannot be edited to a bigger reward or deleted (undo first).
 * **Auto-checked quests** (`verify` rules: protein, water, sleep, mobility, bodyweight, workout, rest day, practice,
@@ -76,18 +93,19 @@ read the caller from `auth.uid()`, lock the quest row, and write an **append-onl
   refused, and rest days are a rewarded quest type.
 * **Focused-work bonus:** +25% when ≥80% of a quest's planned time was logged against it with the timer.
 * Totals and levels are **derived** from the ledger. The curve is `XP to reach level L = base × (L−1)^exponent`,
-  stored per user in `user_settings`; the TypeScript and SQL implementations are proven identical by tests.
+  stored in `user_settings`; the TypeScript and SQL implementations are proven identical by tests.
 
-### Security model
-* Every table has row-level security; every row carries `user_id`; cross-table references are composite
-  `(id, user_id)` foreign keys, so a row can never point at another user's data.
-* The ledger, completions, activity and achievements are **read-only to clients**; only the definer functions write them.
-  Titles can only be equipped if earned; rewards can only be claimed if the milestone is reached.
-* Server Actions validate every input with Zod, derive `user_id` from the session, and map database errors to
-  plain-language messages. Redirect targets are allow-listed (`safeNext`). API routes require same-origin JSON.
-* The Supabase service-role key is not used anywhere. The AI key never reaches the browser.
-* The coach receives a **shaped summary** (see `src/lib/coach/context.ts`): no email, notes, contact details, lead
-  names, payments or body measurements. Settings → *Show exactly what would be sent* previews the real payload.
+### How the app talks to the database
+`src/db/` boots PGlite, applies the migrations (bundled into `migrations.generated.ts` by `npm run gen:sql`; a test fails
+if the bundle drifts), and creates the one local user. `src/db/shim.ts` is a small supabase-js-shaped query builder
+(`from().select/insert/update/upsert/delete`, filters, `order/limit/range`, `single`, `rpc`) over that database. Each call
+runs in its own transaction as the `authenticated` role with the local user's claims, so **row-level security, the
+trusted functions and the triggers behave exactly as they did against a server**. Pages are async functions that run in
+the browser (`LivePage`) and re-read after every write.
+
+On-device there is a single user and a single connection, so RLS and the composite `(id, user_id)` keys no longer defend
+against other people. They are kept because they still stop bugs: the app can't write XP, mark a quest done, or claim a
+reward except through the engine.
 
 ### Planning rules
 Free hours per weekday are yours to set. Recommended load is 80% of them; over 115% (or over your daily quest limit) is
@@ -97,8 +115,8 @@ configured weekdays) never break a streak.
 
 ### Time zones
 A "day" is a calendar date in your profile time zone. Completions store the local date at the moment they happen
-(computed in the database), so streaks respect midnight where you live. Dates are formatted with fixed tables, not
-`Intl`, because Node and browsers disagree on punctuation and that breaks hydration.
+(computed in the database), so streaks respect midnight where you live; pages refresh when the date rolls over. Dates are
+formatted with fixed tables, not `Intl`, because Node and browsers disagree on punctuation and that breaks hydration.
 
 ### Money
 Income exists only as invoices and payments **you record**. Learning or coding hours are never converted into income;
@@ -110,42 +128,47 @@ currencies are never mixed or converted.
 
 ```bash
 npm run typecheck
-npm run test:unit      # 94 tests: curve, streaks, recurrence, planner, timer, analytics, coach privacy…
-npm run test:db        # 45 tests against real Postgres (starts the local stack): RLS, XP, races, parity with TS
-npm run test:e2e       # 61 browser tests (production build + local stack): see below
+npm run test:unit      # 95 tests: curve, streaks, recurrence, planner, timer, analytics, coach privacy, migration bundle…
+npm run test:db        # 68 tests on the shipped engine (PGlite): RLS, XP engine, parity with TS, the query shim, backup/restore, coach
+npm run test:e2e       # builds the static site and drives Chromium through it: see below
 ```
-The e2e suite drives Chromium through sign-up, onboarding, XP/undo/double-click races, auth-gated quests, the planner
-limit, every module, charts, rewards, settings, export, the coach with no key, direct cross-user REST attacks,
-keyboard use, accessibility checks, and phone (390px) and tablet (820px) layouts, failing on any console error or
-failed request. Screenshots land in `e2e-shots/`.
+The e2e suite serves the production export as plain files and drives Chromium through first launch and onboarding,
+XP/undo/double-click, the planner, every module, charts, rewards, settings, **backup and restore**, **persistence across
+closing the tab**, **a second profile starting empty**, **the second-tab lock**, **offline use**, the coach without a key
+(and with a fake key against a stubbed endpoint), keyboard use, accessibility checks, and phone (390px) and tablet
+(820px) layouts. It fails on any console error or failed request. Screenshots land in `e2e-shots/`.
 
 ### What has **not** been verified
-* **Real Supabase Auth** (email confirmation, password-reset mails, OAuth) — only the stand-in was exercised.
-  Those code paths (`/auth/callback`, `/forgot-password`, `/reset-password`) follow Supabase's documented SSR flow
-  but have not been run against a live project.
-* **A live Anthropic call.** The coach request is built, validated and error-handled and is tested with a fake client
-  (including privacy of the payload), but no real API key was available. The refusal-fallback parameter in particular
-  is untested against the live API.
-* **Real devices** (iOS Safari, Android) — only emulated viewports/touch in Chromium.
-* Load and scale; offline use (this is not a PWA with offline support).
+* **Real devices.** Only desktop Chromium (including emulated phone/tablet viewports and touch) was used. iOS Safari
+  and Android Chrome have not been tried: IndexedDB persistence, the service worker, home-screen install and storage
+  eviction behave differently there. Test *Add to Home Screen* on your phone before relying on it.
+* **A Vercel deployment.** `vercel.json` is written to the documented static-export setup but I could not deploy from
+  here. Any plain static host serving `out/` is the fallback.
+* **A live Anthropic call.** The coach request is built, validated and error-handled and is tested with a fake client and
+  a stubbed network endpoint (including the privacy of the payload), but no real API key was available. The
+  refusal-fallback parameter in particular is untested against the live API.
+* **Load and large data.** The database engine loads fully into memory; start-up is about 2 s on a warm launch and
+  6 s on the very first one in the test sandbox, and will be slower on older phones. Years of data have not been tried.
+* **Two devices.** There is no sync; that is by design.
 
 ### Known limitations
-* Progress is **self-reported**. The server can check that you logged something before paying XP, not that it truly
+* Progress is **self-reported**. The database can check that you logged something before paying XP, not that it truly
   happened, and you can set your own XP values. It is a personal tool, not an anti-cheat system.
 * Badges are withdrawn if undoing work (or removing sample data) drops a metric below its threshold. This keeps them
   consistent with the ledger, and is deliberate.
-* Account deletion is not self-service (it needs the Supabase admin API); *Reset all progress* wipes your data.
-* No data import (export is JSON only).
 * Deleting a repeating quest removes future copies; past copies and their XP stay.
+* The engine runs on one connection, so true concurrent writers are not exercised on-device (the second-tab lock exists
+  for that reason).
 
 ## 5. Layout
 
 ```
-supabase/migrations/   schema + RLS, trusted functions, reference seeds
-src/app/               routes: (app) screens, (auth), (onboarding), api/export, api/coach, actions/
+supabase/migrations/   schema + RLS, trusted functions, reference seeds (run unchanged in the browser)
+src/db/                the on-device database: PGlite boot, migrations bundle, supabase-style query shim, backup/restore
+src/app/               routes: (app) screens (page.tsx = thin client wrapper, view.tsx = the screen), (onboarding), actions/
 src/lib/game/          pure logic: xp, streaks, recurrence, planner, timer, analytics, domain helpers
-src/lib/coach/         what the AI may see, prompt, request, rate limits
-src/components/        UI primitives, charts, quest item, forms, focus timer
-scripts/               test-stack.mjs (local Postgres+PostgREST+auth stand-in), e2e.mjs
-tests/                 unit/ and db/
+src/lib/coach/         what the AI may see, prompt, request, rate limits, the browser-side runner
+src/components/        UI primitives, charts, quest item, forms, focus timer, LivePage
+scripts/               gen-sql (bundle migrations), gen-sw (offline worker), gen-icons, serve-static, e2e
+tests/                 unit/ and db/ (the db tests run the real migrations on PGlite)
 ```

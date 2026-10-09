@@ -1,13 +1,12 @@
-"use server";
-import { revalidatePath } from "next/cache";
+import { notifyChange } from "@/db/events";
 import { z } from "zod";
-import { run, check, type ActionResult } from "@/lib/server/action";
-import { getContext } from "@/lib/server/context";
+import { run, check, type ActionResult } from "@/lib/data/action";
+import { getContext } from "@/lib/data/context";
 import { addDays } from "@/lib/dates";
 import { LEAD_STATUSES, PROJECT_STAGES } from "@/lib/constants";
 import { uuid } from "@/lib/schemas";
 
-const refresh = () => revalidatePath("/", "layout");
+const refresh = () => notifyChange();
 
 const OUTREACH_FOR: Record<string, "message" | "reply" | "meeting" | "proposal" | "note"> = {
   contacted: "message", replied: "reply", meeting: "meeting", proposal: "proposal", won: "note", lost: "note",

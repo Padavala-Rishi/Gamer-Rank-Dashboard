@@ -1,12 +1,11 @@
-"use server";
-import { revalidatePath } from "next/cache";
+import { notifyChange } from "@/db/events";
 import { z } from "zod";
-import { run, check, type ActionResult } from "@/lib/server/action";
-import { getContext } from "@/lib/server/context";
+import { run, check, type ActionResult } from "@/lib/data/action";
+import { getContext } from "@/lib/data/context";
 import { nextRevisionDate } from "@/lib/game/domain";
 import { focusSessionSchema, uuid } from "@/lib/schemas";
 
-const refresh = () => revalidatePath("/", "layout");
+const refresh = () => notifyChange();
 
 /** Mark a syllabus item todo / learning / done. Finishing one schedules its first revision for tomorrow. */
 export async function setNodeStatus(id: string, status: "todo" | "learning" | "done"): Promise<ActionResult> {

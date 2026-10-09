@@ -206,7 +206,7 @@ export function TaskForm({ today, initial, defaults, onDone }: { today: string; 
               )}
             </div>
           )}
-          <Field label="Completion check" htmlFor="tf-verify" hint="Optional. The server confirms you logged it before awarding XP. It can check that something was recorded, not that it really happened.">
+          <Field label="Completion check" htmlFor="tf-verify" hint="Optional. The app confirms you logged it before awarding XP. It can check that something was recorded, not that it really happened.">
             <select id="tf-verify" className="select" value={verify?.kind ?? ""} onChange={(e) => setVerify(e.target.value ? { kind: e.target.value, ...(e.target.value === "focus" ? { minutes: 30, category: category === "life" ? "college" : category } : e.target.value === "shooting" ? { attempts: 50 } : {}) } : null)}>
               {VERIFY_OPTIONS.map((o) => <option key={o.kind} value={o.kind}>{o.label}</option>)}
             </select>

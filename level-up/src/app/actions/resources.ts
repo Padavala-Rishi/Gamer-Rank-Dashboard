@@ -1,7 +1,6 @@
-"use server";
-import { revalidatePath } from "next/cache";
-import { run, check, type ActionResult } from "@/lib/server/action";
-import { getContext } from "@/lib/server/context";
+import { notifyChange } from "@/db/events";
+import { run, check, type ActionResult } from "@/lib/data/action";
+import { getContext } from "@/lib/data/context";
 import { isResource, RESOURCES } from "@/lib/resources";
 import { uuid } from "@/lib/schemas";
 
@@ -24,7 +23,7 @@ export async function saveRow(resource: string, id: string | null, input: unknow
       const row = check(await supabase.from(def.table).insert(parsed).select("id").single()) as { id: string };
       rowId = row.id;
     }
-    revalidatePath("/", "layout");
+    notifyChange();
     return { id: rowId };
   });
 }
@@ -35,6 +34,6 @@ export async function deleteRow(resource: string, id: string): Promise<ActionRes
     uuid.parse(id);
     const { supabase } = await getContext();
     check(await supabase.from(RESOURCES[resource].table).delete().eq("id", id).select("id"));
-    revalidatePath("/", "layout");
+    notifyChange();
   });
 }

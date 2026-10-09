@@ -1,19 +1,20 @@
 #!/usr/bin/env node
-// End-to-end suite: real browser → production Next server → PostgREST → Postgres (local test stack).
+// End-to-end suite: real Chromium → the production static export (./out) served as plain files.
+// There is no server, API or database service: the app keeps its data in the browser, so these tests also prove
+// persistence, isolation between browser profiles, backup/restore and offline use.
 // Usage: node scripts/e2e.mjs [--no-build] [--only=<substring>]
-import { spawn, execFileSync } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
-import { ANON_KEY } from "./test-stack.mjs";
+import { startStaticServer } from "./serve-static.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const PORT = 3100;
+const PORT = Number(process.env.E2E_PORT || 3100);
 const BASE = `http://127.0.0.1:${PORT}`;
-const SUPABASE = "http://127.0.0.1:54321";
 const SHOTS = path.join(ROOT, "e2e-shots");
-const CHROME = process.env.CHROME_PATH || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+const CHROME = process.env.CHROME_PATH || "/opt/pw-browsers/chromium";
 const args = process.argv.slice(2);
 const only = args.find((a) => a.startsWith("--only="))?.slice(7);
 mkdirSync(SHOTS, { recursive: true });
@@ -39,24 +40,11 @@ async function test(name, fn) {
 const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
 const eq = (a, b, msg = "") => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${msg} expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); };
 
-// ───────────── servers ─────────────
-let nextProc;
-const stopNext = () => { try { process.kill(-nextProc.pid, "SIGTERM"); } catch { /* already gone */ } };
+// ───────────── server ─────────────
+let staticServer;
 async function boot() {
-  execFileSync(process.execPath, [path.join(ROOT, "scripts/test-stack.mjs"), "up", "--fresh"], { stdio: "inherit" });
-  const env = { ...process.env, NEXT_PUBLIC_SUPABASE_URL: SUPABASE, NEXT_PUBLIC_SUPABASE_ANON_KEY: ANON_KEY, PORT: String(PORT) };
-  delete env.ANTHROPIC_API_KEY; // the coach must work "off" in tests
-  const dev = args.includes("--dev");
-  if (!dev && !args.includes("--no-build")) execFileSync("npx", ["next", "build"], { cwd: ROOT, env, stdio: "pipe" });
-  nextProc = spawn("npx", ["next", dev ? "dev" : "start", "-p", String(PORT), "-H", "127.0.0.1"], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"], detached: true });
-  let log = "";
-  nextProc.stdout.on("data", (d) => (log += d));
-  nextProc.stderr.on("data", (d) => (log += d));
-  for (let i = 0; i < 100; i++) {
-    try { if ((await fetch(BASE + "/login")).ok) return () => log; } catch { /* not yet */ }
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  throw new Error("Next server did not start:\n" + log);
+  if (!args.includes("--no-build")) execFileSync("npm", ["run", "build"], { cwd: ROOT, stdio: "pipe" });
+  ({ server: staticServer } = await startStaticServer(PORT));
 }
 
 // ───────────── helpers ─────────────
@@ -64,23 +52,43 @@ let browser;
 const watch = (page, label) => {
   page.on("console", (m) => { if (m.type() === "error" && !m.text().includes("caret-color")) problems.push(`[${label}] console @ ${page.url()}: ${m.text()} ${m.location()?.url ?? ""}`); });
   page.on("pageerror", (e) => problems.push(`[${label}] pageerror @ ${page.url()}: ${e.message}`));
-  page.on("response", (r) => { if (r.status() >= 500 || (r.status() >= 400 && !r.url().includes("/api/") && !/\/(login|signup)/.test(r.url()))) problems.push(`[${label}] ${r.status()} ${r.url()}`); });
-  page.on("requestfailed", (r) => { if (!/_rsc|favicon/.test(r.url()) && r.failure()?.errorText !== "net::ERR_ABORTED") problems.push(`[${label}] request failed ${r.url()} ${r.failure()?.errorText}`); });
+  page.on("response", (r) => { if (r.status() >= 400 && !r.url().endsWith("/api/export")) problems.push(`[${label}] ${r.status()} ${r.url()}`); });
+  page.on("requestfailed", (r) => { if (r.failure()?.errorText !== "net::ERR_ABORTED") problems.push(`[${label}] request failed ${r.url()} ${r.failure()?.errorText}`); });
+  softNav(page);
 };
+/**
+ * A full page load boots the on-device database (~2 s warm), which real users pay once per launch, not per screen.
+ * So page.goto() inside the app uses the app's own client-side router, like tapping a link. Pass { hard: true } for a real load.
+ */
+function softNav(page) {
+  const hardGoto = page.goto.bind(page);
+  page.goto = async (url, opts = {}) => {
+    const target = new URL(url, BASE);
+    const live = !opts.hard && page.url().startsWith(BASE) && !page.isClosed() && (await page.evaluate(() => typeof window.next?.router?.push === "function").catch(() => false));
+    if (!live || target.origin !== BASE) return hardGoto(url, opts);
+    await page.evaluate((to) => window.next.router.push(to), target.pathname + target.search);
+    await page.waitForURL((u) => u.pathname + u.search === target.pathname + target.search || (target.pathname === "/" && u.pathname === "/onboarding"), { timeout: 20000 });
+    await page.waitForFunction(() => !document.querySelector('[aria-busy="true"]') && document.querySelector("h1"), null, { timeout: 30000 });
+    return null;
+  };
+  const hardReload = page.reload.bind(page);
+  const ready = () => page.waitForFunction(() => !document.querySelector('[aria-busy="true"]') && !document.querySelector('[data-testid="splash"]') && document.querySelector("h1"), null, { timeout: 60000 });
+  page.reload = async (opts) => { const r = await hardReload(opts); await ready().catch(() => {}); return r; };
+  page.hardGoto = async (url, opts) => { const r = await hardGoto(url, opts); await ready().catch(() => {}); return r; };
+}
 const newCtx = async (opts = {}) => browser.newContext({ viewport: { width: 1280, height: 900 }, ...opts });
 const text = async (page) => (await page.locator("body").innerText()).replace(/\s+/g, " ");
 const shot = (page, name) => page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage: true });
 const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-async function signUp(page, email, name = "Tester", pw = "password123") {
-  await page.goto(BASE + "/signup");
-  await page.fill("#name", name);
-  await page.fill("#email", email);
-  await page.fill("#password", pw);
-  await page.click("button[type=submit]");
-  await page.waitForURL("**/onboarding", { timeout: 20000 });
+/** A brand-new install: the first load of a fresh browser profile boots the database and lands on onboarding. */
+async function startFresh(page) {
+  await page.hardGoto(BASE + "/");
+  await page.waitForURL("**/onboarding", { timeout: 60000 });
+  await page.getByLabel("Character name").waitFor();
 }
-async function onboard(page, { sample = true } = {}) {
+async function onboard(page, { sample = true, name = "Rishi" } = {}) {
+  await page.getByLabel("Character name").fill(name);
   await page.getByRole("button", { name: "Continue" }).click();
   await page.fill('input[aria-label="Basketball goal"]', "Reliable point guard");
   await page.getByRole("button", { name: "Continue" }).click();
@@ -89,78 +97,38 @@ async function onboard(page, { sample = true } = {}) {
   const box = page.getByLabel(/Add sample quests/);
   if ((await box.isChecked()) !== sample) await box.click();
   await page.getByRole("button", { name: "Start playing" }).click();
-  await page.waitForURL(BASE + "/", { timeout: 30000 });
+  await page.waitForURL(BASE + "/", { timeout: 60000 });
   await page.waitForSelector("h1");
-}
-async function signIn(page, email, pw = "password123") {
-  await page.goto(BASE + "/login");
-  await page.fill("#email", email);
-  await page.fill("#password", pw);
-  await page.click("button[type=submit]");
-  await page.waitForURL(BASE + "/", { timeout: 20000 });
 }
 const xpOf = async (page) => { const t = await text(page); const m = t.match(/(\d+) \/ (\d+) XP/); return m ? Number(m[1]) : null; };
 const toast = (page, re) => page.locator("[role=status]").getByText(re).first().waitFor({ timeout: 8000 });
 const questRow = (page, title) => page.locator('[data-testid="quest"]').filter({ hasText: title }).first();
 
 // ───────────── suites ─────────────
-const U = { email: `a_${uid()}@test.local`, name: "Rishi" };
-const V = { email: `b_${uid()}@test.local`, name: "Other" };
+const U = { name: "Rishi" };
 
 async function main() {
-  const getLog = await boot();
+  await boot();
   browser = await chromium.launch({ executablePath: CHROME, args: ["--no-sandbox"] });
   const ctx = await newCtx();
   const page = await ctx.newPage();
   globalThis.__page = page;
   watch(page, "desktop");
 
-  console.log("\nAuthentication and access control");
-  await test("signed-out visitors are sent to the login page", async () => {
-    await page.goto(BASE + "/quests");
-    assert(page.url().includes("/login?next=%2Fquests"), "expected redirect to /login with next, got " + page.url());
-    for (const p of ["/", "/stats", "/settings", "/coach", "/achievements", "/basketball"]) {
-      await page.goto(BASE + p);
-      assert(page.url().includes("/login"), `${p} did not redirect`);
-    }
+  console.log("\nFirst launch (no account, no server)");
+  await test("a fresh install opens straight into onboarding: no sign-up, no login", async () => {
+    await startFresh(page);
+    const t = await text(page);
+    assert(!/sign in|sign up|log in|password|email/i.test(t), "found account UI: " + t.slice(0, 200));
+    await page.hardGoto(BASE + "/quests");
+    await page.waitForURL("**/onboarding", { timeout: 60000 }); // every screen waits for onboarding on a new install
   });
-  await test("API routes refuse signed-out requests", async () => {
-    eq((await fetch(BASE + "/api/export")).status, 401);
-    eq((await fetch(BASE + "/api/coach?preview=1")).status, 401);
-    eq((await fetch(BASE + "/api/coach", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "next" }) })).status, 401);
-  });
-  await test("sign-up validates input with clear messages", async () => {
-    await page.goto(BASE + "/signup");
-    await page.fill("#email", "not-an-email");
-    await page.fill("#password", "password123");
-    await page.click("button[type=submit]");
-    await page.getByText("Enter a valid email address").waitFor();
-    await page.fill("#email", `short_${uid()}@test.local`);
-    await page.fill("#password", "abc");
-    await page.click("button[type=submit]");
-    await page.getByText("Use at least 8 characters").first().waitFor();
-  });
-  await test("sign-in with the wrong password fails without revealing which part was wrong", async () => {
-    await page.goto(BASE + "/login");
-    await page.fill("#email", "nobody@test.local");
-    await page.fill("#password", "wrongwrong");
-    await page.click("button[type=submit]");
-    await page.getByText("That email and password don't match.").waitFor();
-  });
-  await test("open-redirect attempts via ?next= are neutralised", async () => {
-    await signUp(page, U.email, U.name);
-    await page.context().clearCookies();
-    await page.goto(BASE + "/login?next=https://evil.example/");
-    await page.fill("#email", U.email);
-    await page.fill("#password", "password123");
-    await page.click("button[type=submit]");
-    await page.waitForURL(BASE + "/", { timeout: 15000 }); // lands on the safe default, never off-site
-    assert(!page.url().includes("evil"), "redirected off-site: " + page.url());
+  await test("there is no server API: the old endpoints simply don't exist", async () => {
+    for (const p of ["/api/export", "/api/coach", "/login", "/signup"]) eq((await fetch(BASE + p)).status, 404, p);
   });
 
   console.log("\nOnboarding");
   await test("onboarding wizard completes and lands on the character dashboard", async () => {
-    await page.goto(BASE + "/onboarding");
     await shot(page, "01-onboarding");
     await onboard(page);
     assert((await text(page)).includes("Rishi"), "character name missing");
@@ -185,7 +153,7 @@ async function main() {
     await page.waitForFunction(() => /10 \/ 100 XP/.test(document.body.innerText), null, { timeout: 8000 });
     assert((await text(page)).includes("Recent activity"), "feed");
   });
-  await test("progress persists across a reload", async () => {
+  await test("progress persists across a reload (the database is in this browser)", async () => {
     await page.reload();
     eq(await xpOf(page), 10, "xp after reload");
     assert((await text(page)).includes("First Steps"), "activity feed shows the badge");
@@ -244,21 +212,19 @@ async function main() {
     assert(/Level 2/.test(await text(page)), "level 2 shown");
   });
 
-  // remaining suites are appended in e2e-2
+  // remaining suites are in e2e-more
   const rest = await import("./e2e-more.mjs");
-  await rest.run({ BASE, SUPABASE, ANON_KEY, browser, ctx, page, newCtx, watch, test, assert, eq, text, shot, uid, signUp, onboard, signIn, xpOf, toast, questRow, U, V });
+  await rest.run({ BASE, browser, ctx, page, newCtx, watch, test, assert, eq, text, shot, uid, startFresh, onboard, xpOf, toast, questRow, U, CHROME, SHOTS });
 
   await browser.close();
-  stopNext();
-  execFileSync(process.execPath, [path.join(ROOT, "scripts/test-stack.mjs"), "down"], { stdio: "ignore" });
+  staticServer.close();
 
   const failed = results.filter((r) => !r.ok);
   const uniqueProblems = [...new Set(problems)];
-  const { writeFileSync } = await import("node:fs");
   writeFileSync(path.join(SHOTS, "problems.txt"), uniqueProblems.join("\n\n---\n\n"));
   console.log(`\n${results.length - failed.length}/${results.length} passed`);
   if (uniqueProblems.length) console.log(`\nBrowser problems seen: ${uniqueProblems.length} (full text in e2e-shots/problems.txt)`);
-  if (failed.length || uniqueProblems.length) { console.log("\nserver log tail:\n" + getLog().split("\n").slice(-15).join("\n")); process.exit(1); }
+  if (failed.length || uniqueProblems.length) process.exit(1);
 }
 
-main().catch(async (e) => { console.error(e); try { await browser?.close(); } catch {} stopNext(); process.exit(1); });
+main().catch(async (e) => { console.error(e); try { await browser?.close(); } catch {} staticServer?.close(); process.exit(1); });

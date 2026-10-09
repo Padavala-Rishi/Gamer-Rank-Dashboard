@@ -2,7 +2,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { signOut } from "@/app/actions/auth";
 import { setTheme } from "@/app/actions/profile";
 import { Icon } from "./icon";
 import { GROUP_LABEL, NAV, isActive, type NavItem } from "./nav";
@@ -49,17 +48,9 @@ export function ThemeToggle({ theme }: { theme: "dark" | "light" }) {
   const [t, setT] = useState(theme);
   return (
     <button className="btn btn-ghost btn-icon btn-sm" aria-label={t === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-      onClick={() => { const next = t === "dark" ? "light" : "dark"; setT(next); document.documentElement.dataset.theme = next; void setTheme(next); }}>
+      onClick={() => { const next = t === "dark" ? "light" : "dark"; setT(next); void setTheme(next); }}>
       <Icon name={t === "dark" ? "sun" : "moon"} size={16} />
     </button>
-  );
-}
-
-export function SignOutButton({ className }: { className?: string }) {
-  return (
-    <form action={signOut}>
-      <button className={className ?? "btn btn-ghost btn-sm"} type="submit"><Icon name="log-out" size={16} /> Sign out</button>
-    </form>
   );
 }
 
@@ -101,7 +92,6 @@ export function BottomNav() {
             </li>
           ))}
         </ul>
-        <div className="mt-4 flex justify-end"><SignOutButton /></div>
       </Sheet>
     </>
   );

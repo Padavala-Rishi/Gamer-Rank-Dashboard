@@ -1,11 +1,17 @@
-import { redirect } from "next/navigation";
-import { getContext } from "@/lib/server/context";
+"use client";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { DbProblem, Splash, useLive } from "@/components/live-page";
+import { getContext } from "@/lib/data/context";
 import { Wizard } from "./wizard";
 
-export const metadata = { title: "Create your character" };
-
-export default async function Page() {
-  const { profile } = await getContext();
-  if (profile.onboarded_at) redirect("/");
-  return <Wizard initialName={profile.character_name === "Player One" ? "" : profile.character_name} timezone={profile.timezone} />;
+export default function Page() {
+  const { data, error } = useLive(getContext, "onboarding");
+  const router = useRouter();
+  const done = data ? Boolean(data.profile.onboarded_at) : null;
+  useEffect(() => { document.title = "Create your character · Level Up"; }, []);
+  useEffect(() => { if (done) router.replace("/"); }, [done, router]);
+  if (error && !data) return <DbProblem error={error} />;
+  if (!data || done) return <Splash />;
+  return <Wizard initialName={data.profile.character_name === "Player One" ? "" : data.profile.character_name} timezone={data.profile.timezone} />;
 }

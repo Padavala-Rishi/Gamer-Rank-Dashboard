@@ -4,7 +4,7 @@ import type { Character } from "@/lib/game/xp";
 import type { Profile } from "@/lib/types";
 import { Avatar } from "./avatar";
 import { Icon } from "./icon";
-import { BottomNav, QuickAddButton, SidebarNav, SignOutButton, ThemeToggle } from "./nav-client";
+import { BottomNav, QuickAddButton, SidebarNav, ThemeToggle } from "./nav-client";
 import { ProgressBar } from "./ui";
 
 export function AppShell({ profile, character, theme, children }: { profile: Profile; character: Character; theme: "dark" | "light"; children: ReactNode }) {
@@ -33,7 +33,6 @@ export function AppShell({ profile, character, theme, children }: { profile: Pro
           </Link>
           <div className="flex items-center justify-between">
             <ThemeToggle theme={theme} />
-            <SignOutButton />
           </div>
         </div>
       </aside>

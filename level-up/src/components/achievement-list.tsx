@@ -2,7 +2,7 @@ import type { AchievementDef } from "@/lib/types";
 import { Icon } from "./icon";
 import { ProgressBar } from "./ui";
 
-/** Badge grid with honest progress: bars use the same metrics the server uses to unlock them. */
+/** Badge grid with honest progress: bars use the same metrics the database uses to unlock them. */
 export function AchievementList({ defs, unlocked, metrics, compact }: { defs: AchievementDef[]; unlocked: Map<string, string>; metrics: Record<string, number>; compact?: boolean }) {
   return (
     <ul className={compact ? "grid gap-2 sm:grid-cols-2" : "grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3"}>

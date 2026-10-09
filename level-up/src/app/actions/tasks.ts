@@ -1,16 +1,15 @@
-"use server";
-import { revalidatePath } from "next/cache";
+import { notifyChange } from "@/db/events";
 import { z } from "zod";
-import { run, check, type ActionResult } from "@/lib/server/action";
-import { getContext } from "@/lib/server/context";
-import { ensureRecurring } from "@/lib/server/recurring";
+import { run, check, type ActionResult } from "@/lib/data/action";
+import { getContext } from "@/lib/data/context";
+import { ensureRecurring } from "@/lib/data/recurring";
 import { checkSchedule, type PlannerTask, type ScheduleCheck } from "@/lib/game/planner";
 import { addDays, isYMD, type YMD } from "@/lib/dates";
 import { occurrencesBetween } from "@/lib/game/recurrence";
 import { taskSchema, text, optYmd, ymd, uuid } from "@/lib/schemas";
 import type { CompleteResult, Task } from "@/lib/types";
 
-const refresh = () => revalidatePath("/", "layout");
+const refresh = () => notifyChange();
 
 const PLANNER_COLS = "id,title,category,difficulty,priority,est_minutes,scheduled_date,due_date,status,quest_type,subject_id,parent_id,template_id";
 

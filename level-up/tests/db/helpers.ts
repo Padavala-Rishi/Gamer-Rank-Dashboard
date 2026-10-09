@@ -1,9 +1,19 @@
-import pg from "pg";
+import { PGlite } from "@electric-sql/pglite";
+import { openDatabase } from "@/db/open";
 
-export const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://postgres@127.0.0.1:54322/levelup";
+// These tests run the real migrations on the same engine the app ships (Postgres compiled to WebAssembly).
+// One in-memory database per test file; `admin` is the superuser used only for arranging data.
+export const pg: PGlite = await openDatabase();
 
-/** Superuser pool: used only for arranging data (creating users, back-dating rows). */
-export const admin = new pg.Pool({ connectionString: DATABASE_URL, max: 4 });
+type Res<T> = { rows: T[]; rowCount: number };
+const shape = <T>(r: { rows: T[]; affectedRows?: number }): Res<T> => ({ rows: r.rows, rowCount: r.affectedRows ? r.affectedRows : r.rows.length });
+
+export const admin = {
+  async query<T = any>(sql: string, params: unknown[] = []): Promise<Res<T>> {
+    return shape<T>(await pg.query<T>(sql, params));
+  },
+  async end() { await pg.close(); },
+};
 
 let n = 0;
 export async function createUser(tz = "UTC"): Promise<string> {
@@ -14,28 +24,28 @@ export async function createUser(tz = "UTC"): Promise<string> {
 }
 
 export type Tx = {
-  q: <T = any>(sql: string, params?: unknown[]) => Promise<{ rows: T[]; rowCount: number | null }>;
+  q: <T = any>(sql: string, params?: unknown[]) => Promise<Res<T>>;
 };
 
+class Rollback extends Error {}
+
 /**
- * Run `fn` the way PostgREST would for a signed-in user: one transaction, `set local role authenticated`
- * and the JWT claims in request.jwt.claims. `anon` simulates a request without a session.
+ * Run `fn` the way the app does for a signed-in user: one transaction, `set local role authenticated`
+ * and the claims in request.jwt.claims. `anon` simulates a request without a session.
  */
 export async function asUser<T>(uid: string | null, fn: (tx: Tx) => Promise<T>, opts: { commit?: boolean } = {}): Promise<T> {
-  const client = await admin.connect();
+  let out!: T;
   try {
-    await client.query("begin");
-    await client.query(`set local role ${uid ? "authenticated" : "anon"}`);
-    await client.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify(uid ? { sub: uid, role: "authenticated" } : { role: "anon" })]);
-    const out = await fn({ q: (sql, params) => client.query(sql, params as any[]) as any });
-    await client.query(opts.commit === false ? "rollback" : "commit");
-    return out;
+    await pg.transaction(async (t) => {
+      await t.query(`set local role ${uid ? "authenticated" : "anon"}`);
+      await t.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify(uid ? { sub: uid, role: "authenticated" } : { role: "anon" })]);
+      out = await fn({ q: async (sql, params) => shape(await t.query(sql, (params ?? []) as any[])) });
+      if (opts.commit === false) throw new Rollback();
+    });
   } catch (e) {
-    await client.query("rollback").catch(() => {});
-    throw e;
-  } finally {
-    client.release();
+    if (!(e instanceof Rollback)) throw e;
   }
+  return out;
 }
 
 /** Expect the callback to fail and return the Postgres error (code + message). */

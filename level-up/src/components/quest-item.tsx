@@ -87,7 +87,7 @@ export function QuestItem({ task, today, doneXp, onMove, draggable, dragProps, h
           {overdue && <span className="text-warn">Carried over from {relativeDay(task.scheduled_date!, today).toLowerCase()}</span>}
           {rec && <span className="inline-flex items-center gap-1"><Icon name="repeat" size={12} />{rec}</span>}
           {task.template_id && !template && <span className="inline-flex items-center gap-1" title="Part of a repeating quest"><Icon name="repeat" size={12} /></span>}
-          {task.verify && !done && <span className="inline-flex items-center gap-1" title="XP is awarded once the server finds what you logged"><Icon name="lock" size={12} />auto-checked</span>}
+          {task.verify && !done && <span className="inline-flex items-center gap-1" title="XP is awarded once the app finds what you logged"><Icon name="lock" size={12} />auto-checked</span>}
           {(task.childTotal ?? 0) > 0 && <span>{(task.childTotal ?? 0) - (task.childOpen ?? 0)}/{task.childTotal} steps</span>}
           {done && task.actual_minutes != null && <span>{formatMinutes(task.actual_minutes)} spent</span>}
         </div>

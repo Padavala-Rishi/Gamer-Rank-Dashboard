@@ -1,20 +1,19 @@
-"use server";
-import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
-import { run, check, type ActionResult } from "@/lib/server/action";
-import { getContext } from "@/lib/server/context";
+import { notifyChange } from "@/db/events";
+import { run, check, type ActionResult } from "@/lib/data/action";
+import { getContext } from "@/lib/data/context";
 import { z } from "zod";
 import { profileSchema, settingsPatchSchema, text, ymd } from "@/lib/schemas";
-import { ensureDefaultMetrics } from "@/lib/server/metrics";
+import { ensureDefaultMetrics } from "@/lib/data/metrics";
 import { isValidTimeZone } from "@/lib/dates";
 import { XP_PREFERENCES } from "@/lib/constants";
+import { applyTheme } from "@/lib/theme";
 
-const refresh = () => revalidatePath("/", "layout");
+const refresh = () => notifyChange();
 
 export async function setTheme(theme: "dark" | "light"): Promise<ActionResult> {
   return run(async () => {
     const t = theme === "light" ? "light" : "dark";
-    (await cookies()).set("theme", t, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+    applyTheme(t);
     const { supabase, user } = await getContext();
     check(await supabase.from("user_settings").update({ theme: t }).eq("user_id", user.id).select("user_id"));
   });
@@ -50,7 +49,7 @@ export async function saveSettings(input: unknown): Promise<ActionResult> {
       row.level_base = p.base;
       row.category_level_base = p.category_base;
     }
-    if (patch.theme) (await cookies()).set("theme", patch.theme, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+    if (patch.theme) applyTheme(patch.theme);
     check(await supabase.from("user_settings").update(row).eq("user_id", user.id).select("user_id"));
     refresh();
   });
@@ -88,7 +87,7 @@ export async function finishOnboarding(input: { profile: unknown; settings: unkn
     }
     if (x.loadSample) {
       try {
-        const { loadSampleData } = await import("@/lib/server/sample");
+        const { loadSampleData } = await import("@/lib/data/sample");
         await loadSampleData();
       } catch (e) {
         console.error("[onboarding] sample data failed; continuing without it", e); // never block the account on examples

@@ -91,7 +91,7 @@ describe("clients cannot write XP or bypass the engine", () => {
     expect(e1.code).toBe("42501");
     const e2 = await failure(asUser(u, (tx) => tx.q("insert into tasks (title, status) values ('x','done')")));
     expect(e2.code).toBe("42501");
-    const e3 = await failure(asUser(u, (tx) => tx.q("select 1 from xp_transactions where false; update xp_transactions set amount=1")));
+    const e3 = await failure(asUser(u, (tx) => tx.q("update xp_transactions set amount=1")));
     expect(e3.code).toBe("42501");
   });
 

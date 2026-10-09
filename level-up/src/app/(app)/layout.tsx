@@ -1,22 +1,25 @@
-import { redirect } from "next/navigation";
-import type { ReactNode } from "react";
+"use client";
+import { useRouter } from "next/navigation";
+import { useEffect, type ReactNode } from "react";
+import { DbProblem, Splash, useLive } from "@/components/live-page";
 import { Providers } from "@/components/providers";
 import { AppShell } from "@/components/shell";
-import { buildCharacter } from "@/lib/game/xp";
-import { getContext, getProgress } from "@/lib/server/context";
+import { loadShell } from "@/lib/data/shell";
+import { applyTheme } from "@/lib/theme";
 
-export default async function AppLayout({ children }: { children: ReactNode }) {
-  const { supabase, profile, settings, today, curves } = await getContext();
-  if (!profile.onboarded_at) redirect("/onboarding");
-  const [progress, subjects, projects] = await Promise.all([
-    getProgress(),
-    supabase.from("subjects").select("id,name").eq("archived", false).order("name"),
-    supabase.from("projects").select("id,name").neq("stage", "completed").order("name"),
-  ]);
-  const character = buildCharacter(progress.xp_by_category, curves.overall, curves.category);
+export default function AppLayout({ children }: { children: ReactNode }) {
+  const { data, error } = useLive(loadShell, "shell");
+  const router = useRouter();
+  const onboarded = data ? Boolean(data.profile.onboarded_at) : null;
+
+  useEffect(() => { if (onboarded === false) router.replace("/onboarding"); }, [onboarded, router]);
+  useEffect(() => { if (data) applyTheme(data.settings.theme); }, [data]);
+
+  if (error && !data) return <DbProblem error={error} />;
+  if (!data || !onboarded) return <Splash />;
   return (
-    <Providers today={today} xp={settings.xp_values} subjects={subjects.data ?? []} projects={projects.data ?? []}>
-      <AppShell profile={profile} character={character} theme={settings.theme}>{children}</AppShell>
+    <Providers today={data.today} xp={data.settings.xp_values} subjects={data.subjects} projects={data.projects}>
+      <AppShell profile={data.profile} character={data.character} theme={data.settings.theme}>{children}</AppShell>
     </Providers>
   );
 }

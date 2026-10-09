@@ -1,6 +1,6 @@
 "use client";
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import Link from "next/link";
+import { useEffect, useState, useTransition } from "react";
 import { createTask } from "@/app/actions/tasks";
 import { saveSettings } from "@/app/actions/profile";
 import { Icon } from "@/components/icon";
@@ -8,11 +8,15 @@ import { Notice } from "@/components/ui";
 import { useUI } from "@/components/ui-context";
 import { CATEGORIES, DIFFICULTY_LABEL, type AnyCategory, type Difficulty } from "@/lib/constants";
 import { addDays } from "@/lib/dates";
-import type { CoachResult } from "@/lib/coach/run";
+import { askCoach, previewCoachContext } from "@/lib/coach/browser";
+import { useApiKey } from "@/lib/coach/use-api-key";
+import type { CoachMode, CoachResult } from "@/lib/coach/run";
 
 type Mode = { key: string; label: string; blurb: string };
 
-export function CoachPanel({ today, enabled, reason, modes }: { today: string; enabled: boolean; reason: "not_configured" | "no_consent" | null; modes: Mode[] }) {
+export function CoachPanel({ today, consent, modes }: { today: string; consent: boolean; modes: Mode[] }) {
+  const { hasKey } = useApiKey();
+  const enabled = hasKey && consent;
   const { toast } = useUI();
   const [mode, setMode] = useState(modes[0].key);
   const [input, setInput] = useState("");
@@ -26,11 +30,10 @@ export function CoachPanel({ today, enabled, reason, modes }: { today: string; e
   const ask = async () => {
     setBusy(true); setErr(null); setResult(null); setAdded({});
     try {
-      const res = await fetch("/api/coach", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode, input: input.trim() || undefined }) });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) { setErr(body.message ?? "The coach couldn't answer."); return; }
-      setResult({ ...body.result, mode });
-    } catch { setErr("Couldn't reach the server."); } finally { setBusy(false); }
+      const r = await askCoach(mode as CoachMode, input);
+      if (!r.ok) { setErr(r.error); return; }
+      setResult({ ...r.result, mode });
+    } finally { setBusy(false); }
   };
 
   const add = (i: number) => {
@@ -59,8 +62,8 @@ export function CoachPanel({ today, enabled, reason, modes }: { today: string; e
       <button className="btn btn-primary" onClick={ask} disabled={!enabled || busy || (needsInput && !input.trim())} data-testid="coach-ask">
         <Icon name="bot" size={16} />{busy ? "Thinking…" : "Ask the coach"}
       </button>
-      {reason === "not_configured" && <p className="mt-2 text-sm text-muted">Unavailable: no AI key is configured on the server.</p>}
-      {reason === "no_consent" && <p className="mt-2 text-sm text-muted">Turn on the coach above to use it.</p>}
+      {!hasKey && <p className="mt-2 text-sm text-muted" data-testid="coach-nokey">The coach is off until you add your own Anthropic API key in <Link className="text-accent" href="/settings#ai">Settings</Link>. Everything else in Level Up works without it.</p>}
+      {hasKey && !consent && <p className="mt-2 text-sm text-muted">Turn on the coach above to use it.</p>}
       {err && <Notice tone="warn" className="mt-4">{err}</Notice>}
 
       {result && (
@@ -92,12 +95,17 @@ export function CoachPanel({ today, enabled, reason, modes }: { today: string; e
 
 export function ConsentSwitch({ consent }: { consent: boolean }) {
   const { toast } = useUI();
-  const router = useRouter();
+  const [on, setOn] = useState(consent);
   const [pending, start] = useTransition();
+  useEffect(() => setOn(consent), [consent]);
   return (
     <label className="flex cursor-pointer items-center gap-2.5 text-sm">
-      <input type="checkbox" className="size-4 accent-[var(--accent)]" checked={consent} disabled={pending} data-testid="coach-consent"
-        onChange={(e) => start(async () => { const r = await saveSettings({ ai_consent: e.target.checked }); if (!r.ok) toast(r.error, "bad"); else { toast(e.target.checked ? "Coach enabled. Data is sent only when you ask." : "Coach disabled", "info"); router.refresh(); } })} />
+      <input type="checkbox" className="size-4 accent-[var(--accent)]" checked={on} disabled={pending} data-testid="coach-consent"
+        onChange={(e) => {
+          const next = e.target.checked;
+          setOn(next);
+          start(async () => { const r = await saveSettings({ ai_consent: next }); if (!r.ok) { setOn(!next); toast(r.error, "bad"); } else toast(next ? "Coach enabled. Data is sent only when you ask." : "Coach disabled", "info"); });
+        }} />
       I agree to share the data above with the AI provider when I ask the coach
     </label>
   );
@@ -108,7 +116,7 @@ export function Preview() {
   const [busy, setBusy] = useState(false);
   return (
     <div className="w-full">
-      <button className="btn btn-sm" disabled={busy} onClick={async () => { setBusy(true); try { const r = await fetch("/api/coach?preview=1"); const b = await r.json(); setData(JSON.stringify(b.context ?? b, null, 2)); } finally { setBusy(false); } }}>
+      <button className="btn btn-sm" disabled={busy} onClick={async () => { setBusy(true); try { setData(JSON.stringify(await previewCoachContext(), null, 2)); } finally { setBusy(false); } }}>
         <Icon name="search" size={14} />Show exactly what would be sent
       </button>
       {data && <pre className="card-inset mt-3 max-h-80 overflow-auto p-3 text-xs" data-testid="coach-preview">{data}</pre>}

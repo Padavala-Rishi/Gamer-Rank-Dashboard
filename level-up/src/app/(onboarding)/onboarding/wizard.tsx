@@ -68,7 +68,6 @@ export function Wizard({ initialName, timezone }: { initialName: string; timezon
       });
       if (!res.ok) { setError(res.error); return; }
       router.replace("/");
-      router.refresh();
     });
   };
 
