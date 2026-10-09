@@ -26,7 +26,7 @@ export function useLive<T>(load: () => Promise<T>, key: string): { data: T | und
       const mine = ++token.current;
       loadRef.current().then(
         (d) => { if (alive && mine === token.current) { setState({ key, data: d }); setFailure(null); } },
-        (e) => { if (alive && mine === token.current) { console.error("[data]", e); setFailure({ key, error: e }); } },
+        (e) => { if (alive && mine === token.current) { if (!(e instanceof DbLockedError)) console.error("[data]", e); setFailure({ key, error: e }); } },
       );
     };
     run();
