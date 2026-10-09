@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "Turn basketball, college, development and fitness into a personal RPG: complete real quests, earn XP, level up. Private and on your device.",
   applicationName: "Level Up",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon.svg", apple: "/apple-touch-icon.png" },
+  icons: { icon: [{ url: "/icon.svg", type: "image/svg+xml" }, { url: "/favicon.ico" }], apple: "/apple-touch-icon.png" },
   appleWebApp: { capable: true, title: "Level Up", statusBarStyle: "black-translucent" },
 };
 
