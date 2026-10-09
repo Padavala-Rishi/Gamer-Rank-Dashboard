@@ -49,7 +49,7 @@ export async function failure(p: Promise<unknown>): Promise<{ code?: string; mes
 }
 
 export async function addTask(uid: string, t: Record<string, unknown> = {}): Promise<string> {
-  const row = { title: "Test quest", difficulty: "easy", category: "basketball", ...t };
+  const row: Record<string, unknown> = { title: "Test quest", difficulty: "easy", category: "basketball", ...t };
   const keys = Object.keys(row);
   return asUser(uid, async (tx) => {
     const { rows } = await tx.q(

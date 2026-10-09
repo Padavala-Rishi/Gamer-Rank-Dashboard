@@ -2,7 +2,7 @@
 -- Achievement `metric` values are computed by public._user_metrics() in 0002_functions.sql.
 
 insert into public.categories (key, name, attribute, icon, sort) values
-  ('basketball', 'Basketball',        'SKILL',     'dribbble',       1),
+  ('basketball', 'Basketball',        'SKILL',     'basketball',       1),
   ('college',    'College',           'KNOWLEDGE', 'graduation-cap', 2),
   ('dev',        'Development',       'CAREER',    'code-xml',       3),
   ('health',     'Health & Physique', 'VITALITY',  'heart-pulse',    4),
@@ -27,9 +27,9 @@ insert into public.achievement_defs (key, name, description, category, icon, met
   ('active_30',     'Thirty Active Days', 'Complete at least one quest on 30 different days.',null, 'calendar-check','active_days',30,  null,            2, 42),
   ('rest_3',        'Recovery Is Training','Take 3 planned rest days.',                       null, 'moon',       'rest_days',   3,    'Well-Rested',   1, 43),
   -- basketball
-  ('bb_level_3',    'Rotation Player',    'Reach Basketball level 3.',                        'basketball', 'dribbble', 'cat_level_basketball', 3,  'Rotation Player', 1, 100),
-  ('bb_level_6',    'Starter',            'Reach Basketball level 6.',                        'basketball', 'dribbble', 'cat_level_basketball', 6,  'Starter',         2, 101),
-  ('bb_level_10',   'All-Star',           'Reach Basketball level 10.',                       'basketball', 'dribbble', 'cat_level_basketball', 10, 'All-Star',        3, 102),
+  ('bb_level_3',    'Rotation Player',    'Reach Basketball level 3.',                        'basketball', 'basketball', 'cat_level_basketball', 3,  'Rotation Player', 1, 100),
+  ('bb_level_6',    'Starter',            'Reach Basketball level 6.',                        'basketball', 'basketball', 'cat_level_basketball', 6,  'Starter',         2, 101),
+  ('bb_level_10',   'All-Star',           'Reach Basketball level 10.',                       'basketball', 'basketball', 'cat_level_basketball', 10, 'All-Star',        3, 102),
   ('practice_5',    'Gym Door Opener',    'Log 5 finished practice sessions.',                'basketball', 'timer',    'practice_sessions',    5,  null,              1, 103),
   ('practice_25',   'Floor General',      'Log 25 finished practice sessions.',               'basketball', 'timer',    'practice_sessions',    25, 'Floor General',   2, 104),
   ('shots_500',     'Five Hundred',       'Log 500 shot attempts.',                           'basketball', 'target',   'shots_logged',         500,  null,            1, 105),
